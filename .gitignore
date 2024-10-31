@@ -6,6 +6,7 @@ aurora/_version.py
 
 # Virtual environments
 venv
+a_env
 .tox
 
 # Packaging
@@ -29,3 +30,4 @@ htmlcov
 .DS_Store
 *.swp
 .envrc
+downloads/*
