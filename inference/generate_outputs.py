@@ -17,8 +17,13 @@ def generate_outputs(model, batch, steps=28):
     return preds
 
 
-def visualize_outputs(preds, steps=28, output_path="aurora.gif", fps=6):
-# Create and save individual plot images
+def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t"):
+    '''
+    Variables:
+        2t: 2m temperature
+        wind: composite 10m wind speed from u and v components
+    
+    '''
     images = []
     crs = ccrs.PlateCarree(central_longitude=180)
 
@@ -33,7 +38,21 @@ def visualize_outputs(preds, steps=28, output_path="aurora.gif", fps=6):
         fig = plt.figure(figsize=(10, 6))
         ax = fig.add_subplot(1, 1, 1, projection=crs)
         ax.set_aspect('auto')
-        ax.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+
+        if variable == "2t":
+            ax.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+
+        elif variable == "wind":
+            u = pred.surf_vars["10u"][0, 0].numpy()
+            v = pred.surf_vars["10v"][0, 0].numpy()
+
+            # Calculate wind speed
+            speed = np.sqrt(u**2 + v**2)
+
+            # Create wind barbs
+            # ax.barbs(lon, lat, u, v, transform=crs, length=5, barbcolor='black', barb_increments=dict(half=2.5, full=5, flag=25, nan=0))
+            ax.imshow(speed, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+
         ax.coastlines(linewidth=0.7)
         ax.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
         ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black')
@@ -52,7 +71,7 @@ def visualize_outputs(preds, steps=28, output_path="aurora.gif", fps=6):
         images.append(iio.imread(f"temp_{i}.jpg"))
     
     # Create GIF
-    iio.imwrite(output_path, images, loop=0, fps=fps)
+    iio.imwrite(output_path+f"aurora_{variable}.gif", images, loop=0, fps=fps)
 
     # Delete temporary images
     for i in range(steps):
@@ -69,4 +88,4 @@ if __name__ == "__main__":
     model.load_checkpoint("microsoft/aurora", "aurora-0.25-pretrained.ckpt")
 
     preds = generate_outputs(model, batch, steps=28)
-    visualize_outputs(preds, steps=28)
+    visualize_outputs(preds, steps=28, variable="2t")

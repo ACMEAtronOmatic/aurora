@@ -3,23 +3,22 @@ from pathlib import Path
 import xarray as xr
 from aurora import Batch, Metadata
 import torch
+import os
 
 
-# CONFIG PARAMETERS 
-
-DOWNLOAD_PATH = Path("../downloads/")
-STATIC_VARIABLES = ["geopotential", "land_sea_mask", "soil_type"]
-STATIC_TAG = "gls"
-SURFACE_VARIABLES = ["10m_u_component_of_wind", "10m_v_component_of_wind", "2m_temperature", "mean_sea_level_pressure"]
-ATMO_VARIABLES = ["temperature", "u_component_of_wind", "v_component_of_wind", "specific_humidity", "geopotential"]
-PRESSURES = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
-TIMES = [0, 6, 12, 18]
-YEAR = 2023
-MONTH = 1
-DAYS = [1, 2, 3, 4, 5, 6, 7]
 
 
-def download_era5():
+def download_era5(configs):
+    DOWNLOAD_PATH = configs['data']['download_path']
+    STATIC_VARIABLES = configs['data']['static_variables']
+    STATIC_TAG = configs['data']['static_tag']
+    SURFACE_VARIABLES = configs['data']['surface_variables']
+    ATMO_VARIABLES = configs['data']['atmo_variables']
+    PRESSURES = configs['data']['pressures']
+    TIMES = configs['data']['times']
+    YEAR = configs['data']['year']
+    MONTH = configs['data']['month']
+    DAYS = configs['data']['days']
 
     # Download the static variables.
     c = cdsapi.Client()
@@ -28,12 +27,11 @@ def download_era5():
     # Surface & Atmospheric Variables must be at every time step
     # NOTE: in order to make a prediction, Aurora needs [t-1, t] to predict [t+1]
 
-    static_path = DOWNLOAD_PATH / f"static_{STATIC_TAG}.nc"
-    surface_path = DOWNLOAD_PATH / f"{YEAR}-{MONTH:02d}-{DAYS[0]:02d}_{DAYS[-1]:02d}-surface.nc"
-    atmos_path = DOWNLOAD_PATH / f"{YEAR}-{MONTH:02d}-{DAYS[0]:02d}_{DAYS[-1]:02d}-atmospheric.nc"
+    static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}.nc"
+    surface_path = f"{DOWNLOAD_PATH}/{YEAR}-{MONTH:02d}-{DAYS[0]:02d}_{DAYS[-1]:02d}-surface.nc"
+    atmos_path = f"{DOWNLOAD_PATH}/{YEAR}-{MONTH:02d}-{DAYS[0]:02d}_{DAYS[-1]:02d}-atmospheric.nc"
 
-
-    if not (static_path).exists():
+    if not os.path.exists(static_path):
         c.retrieve(
             "reanalysis-era5-single-levels",
             {
@@ -50,7 +48,7 @@ def download_era5():
     print("Static variables downloaded!")
 
     # Download the surface-level variables.
-    if not (surface_path).exists():
+    if not os.path.exists(surface_path):
         c.retrieve(
             "reanalysis-era5-single-levels",
             {
@@ -67,7 +65,7 @@ def download_era5():
     print("Surface-level variables downloaded!")
 
     # Download the atmospheric variables.
-    if not (atmos_path).exists():
+    if not os.path.exists(atmos_path):
         c.retrieve(
             "reanalysis-era5-pressure-levels",
             {
