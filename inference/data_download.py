@@ -7,7 +7,6 @@ import os
 
 
 
-
 def download_era5(configs):
     DOWNLOAD_PATH = configs['data']['download_path']
     STATIC_VARIABLES = configs['data']['static_variables']
