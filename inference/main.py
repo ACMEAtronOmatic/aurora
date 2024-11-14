@@ -4,6 +4,7 @@ import numpy as np
 
 from data_download import download_era5, make_batch
 from generate_outputs import generate_outputs, visualize_outputs, era5_comparison
+from check_configs import check_configs
 from aurora import Aurora
 
 def main():
@@ -16,6 +17,8 @@ def main():
 
     with open(args.yaml_file, 'r') as file:
         config = yaml.safe_load(file)
+        config = check_configs(config)
+        print("Configs loaded!")
 
     # Download ERA5 data
     static_path, surface_path, atmos_path = download_era5(config)
