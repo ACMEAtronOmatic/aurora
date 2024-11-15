@@ -32,8 +32,6 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
         pred = preds[i]              
 
         if comparison_data is not None:
-            truth = comparison_data[i]
-
             fig = plt.figure(figsize=(10, 6))
             ax1 = fig.add_subplot(1, 2, 1, projection=crs) # truth
             ax1.set_aspect('auto')
@@ -42,11 +40,33 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             ax2.set_aspect('auto')
 
             if variable == "2t":
+                truth = comparison_data["t2m"]
+
                 ax1.imshow(truth - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
                 ax2.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
 
-            else:
-                raise NotImplementedError("Comparison with wind not implemented yet.")
+            elif variable == "wind":
+                u = pred.surf_vars["10u"][0, 0].numpy()
+                v = pred.surf_vars["10v"][0, 0].numpy()
+
+                u_truth = np.array(comparison_data["u10"][i])
+                v_truth = np.array(comparison_data["v10"][i])
+
+                # print("u", u.shape, "\t v", v.shape)
+                # print("truth data type: ", type(u_truth))
+                # print("u_truth", u_truth.shape, "\t v_truth", v_truth.shape)
+
+                # Calculate wind speed
+                speed = np.sqrt(u**2 + v**2)
+                speed_truth = np.sqrt(u_truth**2 + v_truth**2)
+
+                # print("speed", speed.shape, "speed_truth", speed_truth.shape)
+
+                # Create wind barbs
+                # ax.barbs(lon, lat, u, v, transform=crs, length=5, barbcolor='black', barb_increments=dict(half=2.5, full=5, flag=25, nan=0))
+                ax1.imshow(speed, vmin=0, vmax=50, cmap='turbo', transform=crs, extent=extent)
+                ax2.imshow(speed_truth, vmin=0, vmax=50, cmap='turbo', transform=crs, extent=extent)
+
 
             ax1.coastlines(linewidth=0.7)
             ax2.coastlines(linewidth=0.7)
@@ -70,8 +90,8 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
 
             # Save plot to memory
             plt.tight_layout()
-            plt.savefig(f"temp_{i}.jpg", bbox_inches='tight')
-            images.append(f"temp_{i}.jpg")
+            plt.savefig(f"temporary_{i}.jpg", bbox_inches='tight')
+            images.append(f"temporary_{i}.jpg")
             # Clear the current figure
             plt.close()  
 
@@ -107,8 +127,8 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             
             # Save plot to memory
             plt.tight_layout()
-            plt.savefig(f"temp_{i}.jpg", bbox_inches='tight')
-            images.append(f"temp_{i}.jpg")
+            plt.savefig(f"temporary_{i}.jpg", bbox_inches='tight')
+            images.append(f"temporary_{i}.jpg")
             # Clear the current figure
             plt.close()        
 
@@ -140,7 +160,7 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
 
     # Delete temporary images
     for i in range(steps):
-        os.remove(f"temp_{i}.jpg")
+        os.remove(f"temporary_{i}.jpg")
 
 
 def era5_comparison(steps=28, variable="t2m", data_path=""):
@@ -149,19 +169,27 @@ def era5_comparison(steps=28, variable="t2m", data_path=""):
     '''
     ds = xr.open_dataset(data_path, engine="netcdf4")
 
-    data = []
+    data = {}
 
-    for i in range(steps):
-        if variable == "t2m":
-            data.append(ds["t2m"].values[i])
-        elif variable == "u10":
-            data.append(ds["u10"].values[i])
-        elif variable == "v10":
-            data.append(ds["v10"].values[i])
-        elif variable == "msl":
-            data.append(ds["msl"].values[i])
-        else:
-            raise ValueError(f"Invalid variable: {variable}")
+    if variable == "wind":
+        data['u10'] = ds['u10'].values[:steps]
+        data['v10'] = ds['v10'].values[:steps]
+    else:
+        data[variable] = ds[variable].values[:steps]
+
+    # data = []
+
+    # for i in range(steps):
+    #     if variable == "t2m":
+    #         data.append(ds["t2m"].values[i])
+    #     elif variable == "u10":
+    #         data.append(ds["u10"].values[i])
+    #     elif variable == "v10":
+    #         data.append(ds["v10"].values[i])
+    #     elif variable == "msl":
+    #         data.append(ds["msl"].values[i])
+    #     else:
+    #         raise ValueError(f"Invalid variable: {variable}")
         
     return data
 

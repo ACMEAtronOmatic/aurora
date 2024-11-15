@@ -15,4 +15,4 @@ inference:
   checkpoint: "aurora-0.25-pretrained.ckpt"
   use_lora: false
   steps: 28
-  variable: "2t"
+  variable: "wind"
