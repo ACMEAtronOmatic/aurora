@@ -1,6 +1,7 @@
 import yaml
 from argparse import ArgumentParser
 import numpy as np
+import torch
 
 from data_download import download_era5, make_batch
 from generate_outputs import generate_outputs, visualize_outputs, era5_comparison
@@ -19,6 +20,23 @@ def main():
         config = yaml.safe_load(file)
         config = check_configs(config)
         print("Configs loaded!")
+
+
+    # Check devices
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        if not torch.backends.mps.is_built():
+            print("MPS not available because the current PyTorch install was not "
+                "built with MPS enabled.")
+            device = "cpu"
+        else:
+            device = "mps"
+    else:
+        device = "cpu"
+
+    print("Using device: ", device)
+    torch.set_default_device(device)
 
     # Download ERA5 data
     static_path, surface_path, atmos_path = download_era5(config)
