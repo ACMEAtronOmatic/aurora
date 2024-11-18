@@ -32,5 +32,5 @@ else
 fi
 
 source $venv_name/bin/activate
-pip install cdsapi xarray netcdf4 matplotlib pathlib cartopy opencv-python
+pip install cdsapi xarray netcdf4 matplotlib pathlib cartopy opencv-python joblib
 pip install -e ".[dev]"

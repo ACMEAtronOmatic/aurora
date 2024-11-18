@@ -1,0 +1,35 @@
+---
+all: &all_levels
+  - '50 mb'
+  - '100 mb'
+  - '150 mb'
+  - '200 mb'
+  - '250 mb'
+  - '300 mb'
+  - '400 mb'
+  - '500 mb'
+  - '600 mb'
+  - '700 mb'
+  - '850 mb'
+  - '925 mb'
+  - '1000 mb'
+time:
+  start: 2023010100
+  end: 2023010200
+  interval: 6
+  forecast_start: 0
+  forecast_end: 5
+  forecast_interval: 1
+archive: '../downloads'
+variables:
+  TMP: *all_levels
+  UGRD: *all_levels
+  VGRD: *all_levels
+  RH: *all_levels
+  SPFH: *all_levels
+  CAPE:
+    - 'surface'
+  CIN:
+    - 'surface'
+  PWAT:
+    - 'entire atmosphere (considered as a single layer)'
