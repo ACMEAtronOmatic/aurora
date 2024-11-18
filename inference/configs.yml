@@ -9,7 +9,7 @@ data:
   times: [0, 6, 12, 18]
   year: 2023
   month: 1
-  days: [1, 2, 3, 4, 5, 6, 7]
+  days: [1]
 inference:
   model: "microsoft/aurora"
   checkpoint: "aurora-0.25-pretrained.ckpt"
