@@ -45,6 +45,8 @@ def main():
         comparison_variable = 'wind'
     elif config['inference']['variable'] == "2t":
         comparison_variable = 't2m'
+    elif config['inference']['variable'] == "msl":
+        comparison_variable = 'msl'
     else:
         raise ValueError(f"Don't know which ERA5 variable name to use for comparison from Aurora variable {config['inference']['variable']}")
 

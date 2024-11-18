@@ -40,7 +40,7 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             ax2.set_aspect('auto')
 
             if variable == "2t":
-                truth = comparison_data["t2m"]
+                truth = np.array(comparison_data["t2m"][i])
 
                 ax1.imshow(truth - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
                 ax2.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
@@ -64,8 +64,15 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
 
                 # Create wind barbs
                 # ax.barbs(lon, lat, u, v, transform=crs, length=5, barbcolor='black', barb_increments=dict(half=2.5, full=5, flag=25, nan=0))
-                ax1.imshow(speed, vmin=0, vmax=50, cmap='turbo', transform=crs, extent=extent)
-                ax2.imshow(speed_truth, vmin=0, vmax=50, cmap='turbo', transform=crs, extent=extent)
+                ax1.imshow(speed, vmin=0, vmax=30, cmap='turbo', transform=crs, extent=extent)
+                ax2.imshow(speed_truth, vmin=0, vmax=30, cmap='turbo', transform=crs, extent=extent)
+
+            elif variable == "msl":
+                msl = pred.surf_vars["msl"][0, 0].numpy()
+                msl_truth = np.array(comparison_data["msl"][i])
+
+                ax1.imshow(msl, vmin=850, vmax=1050, cmap='turbo', transform=crs, extent=extent)
+                ax2.imshow(msl_truth, vmin=850, vmax=1050, cmap='turbo', transform=crs, extent=extent)
 
 
             ax1.coastlines(linewidth=0.7)
@@ -175,21 +182,8 @@ def era5_comparison(steps=28, variable="t2m", data_path=""):
         data['u10'] = ds['u10'].values[:steps]
         data['v10'] = ds['v10'].values[:steps]
     else:
+        # t2m, msl
         data[variable] = ds[variable].values[:steps]
-
-    # data = []
-
-    # for i in range(steps):
-    #     if variable == "t2m":
-    #         data.append(ds["t2m"].values[i])
-    #     elif variable == "u10":
-    #         data.append(ds["u10"].values[i])
-    #     elif variable == "v10":
-    #         data.append(ds["v10"].values[i])
-    #     elif variable == "msl":
-    #         data.append(ds["msl"].values[i])
-    #     else:
-    #         raise ValueError(f"Invalid variable: {variable}")
         
     return data
 
