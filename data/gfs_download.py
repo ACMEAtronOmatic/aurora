@@ -220,39 +220,15 @@ def build_archive(dtg, forecastHours, archDir, config, noclobber, model='gfs'):
                             time.sleep(1)
 
 
-#       print(lookup)
-#       print()
-#       print(lookup['O3MR']['650 mb']['anl'])
-        
-#dtg = datetime(2023, 4, 12, 6)
-#fhr = 24
-#
-#day = dtg.strftime('%Y%m%d')
-#hour = dtg.strftime('%H')
-#
-#idxURL = f"https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.{day}/{hour}/atmos/gfs.t{hour}z.pgrb2.0p25.f{fhr:03d}.idx"
-#
-#idxPath = Path(idxURL)
-#fname = idxPath.name
-#
-#print(idxURL)
-#print(fname)
-#
-#req = requests.get(idxURL)
-#print(f"{req.status_code} {idxURL}")
-#
-#with open(fname, 'wb') as f:
-#    f.write(req.content)
-
-def main():
+def download_gfs(config, nproc = 4, noclobber = False):
     '''
     Download GFS data from NOAA AWS, based on YAML configuration files.
     Runs parallel build_archive jobs to download and archive files.
 
     Paramaters
     ----------
-    yaml_file : str
-        Path to YAML file describing the levels, date range, and variables requested from GFS.
+    configs : dict
+        Loaded config yaml describing the levels, date range, and variables requested from GFS.
     no_clobber : bool = False
         Do not clobber existing directories.
     nproc : int = 4
@@ -260,20 +236,9 @@ def main():
 
     Returns
     -------
+    
 
     '''
-    DESCRIPTION = 'Download GFS data based on YAML file.'
-    parser = ArgumentParser(description = DESCRIPTION)
-    parser.add_argument('yaml_file')
-    parser.add_argument('--noclobber', action='store_true', help = 'Do not clobber existing directories.')
-    parser.add_argument('-n', '--nproc', default = 4, help = 'Number of threads for parallelization. Default: 4')
-    args = parser.parse_args()
-
-    noclobber = args.noclobber
-    nproc = int(args.nproc)
-
-    with open(args.yaml_file, 'r') as file:
-        config = yaml.safe_load(file)
 
     sdtg = datetime.strptime(str(config['time']['start']), '%Y%m%d%H')
     edtg = datetime.strptime(str(config['time']['end']), '%Y%m%d%H')
@@ -288,9 +253,25 @@ def main():
 
     forecastHours = list(range(forecastStart, forecastEnd + forecastInterval, forecastInterval))
 
+    # Check if thes GFS data is already downloaded
+    all_dir_paths = [os.path.join(archDir, d.strftime('%Y%m%d')) for d in dtgrange]
+
+    gfs_data_missing = False
+    for d in all_dir_paths:
+        if not os.path.exists(d) or not os.path.isdir(d):
+            print(f"At least one day of GFS data '{d}' is missing. Downloading...")
+            gfs_data_missing = True
+            break
+
+    if not gfs_data_missing:
+        print("All GFS data is already downloaded.")
+        return all_dir_paths
+
     if not archDir.is_dir(): archDir.mkdir(parents=True, exist_ok = True)
 
     Parallel(n_jobs=nproc)(delayed(build_archive)(d, forecastHours, archDir, config, noclobber) for d in tqdm(dtgrange, desc = 'DTG'))
 
+    return all_dir_paths
+
 if __name__ == '__main__':
-    main()
+    download_gfs()
