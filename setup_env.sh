@@ -37,11 +37,12 @@ source $venv_name/bin/activate
 # update and upgrade pip
 pip install --upgrade pip
 
-# install myradar specific requirements from requirements.txt
-pip install -r requirements.txt
+# # install myradar specific requirements from requirements.txt
+# pip install -r requirements.txt
 
 # install aurora dev requirements from pyproject.toml
-pip install -e ".[dev]"
+# dev requirements and myradar specific requirements
+pip install -e ".[dev, myradar]"
 
 echo ""
 echo "Environment setup complete"

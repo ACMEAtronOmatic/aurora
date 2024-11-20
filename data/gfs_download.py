@@ -282,7 +282,7 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
     gfs_data_missing = False
     for d in all_dir_paths:
-        if not os.path.exists(d) or not os.path.isdir(d):
+        if not os.path.exists(d):
             print(f"At least one day of GFS data '{d}' is missing. Downloading...")
             gfs_data_missing = True
             break
@@ -310,9 +310,9 @@ def process_gfs(config):
 
     print("Extracting values from first grib file.")
     with cfgrib.open_dataset(gribFileFirst) as ds:
-        ny = ds.dims['latitude']
-        nx = ds.dims['longitude']
-        nz = ds.dims['isobaricInhPa']
+        ny = ds.sizes['latitude']
+        nx = ds.sizes['longitude']
+        nz = ds.sizes['isobaricInhPa']
         pressures = np.float32(ds['isobaricInhPa'].values * 100.)
         for var in ds.variables:
             if var not in VAREXCLUSIONLIST:

@@ -53,9 +53,7 @@ def main():
 
         # TODO: Compare GFS data with ERA5 data
 
-        exit(0)
-
-    # Download ERA5 data
+    # Download ERA5 data                
     static_path, surface_path, atmos_path = download_era5(config['data']['era5'])
 
     if config['inference']['variable'] == "wind":

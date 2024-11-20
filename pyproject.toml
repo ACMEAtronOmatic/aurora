@@ -53,6 +53,18 @@ dev = [
     "jupyter-book",
     "scipy",
 ]
+myradar = [
+    "cdsapi",
+    "xarray", 
+    "netcdf4", 
+    "matplotlib", 
+    "pathlib", 
+    "cartopy", 
+    "opencv-python", 
+    "joblib", 
+    "cfgrib",
+    "dask"
+]
 
 [project.urls]
 repository = "https://github.com/microsoft/aurora"
