@@ -1,0 +1,9 @@
+cdsapi
+xarray 
+netcdf4 
+matplotlib 
+pathlib 
+cartopy 
+opencv-python 
+joblib 
+cfgrib

@@ -31,6 +31,18 @@ else
     echo "Virtual environment '$venv_name' already exists"
 fi
 
+# activate virtual env
 source $venv_name/bin/activate
-pip install cdsapi xarray netcdf4 matplotlib pathlib cartopy opencv-python joblib
+
+# update and upgrade pip
+pip install --upgrade pip
+
+# install myradar specific requirements from requirements.txt
+pip install -r requirements.txt
+
+# install aurora dev requirements from pyproject.toml
 pip install -e ".[dev]"
+
+echo ""
+echo "Environment setup complete"
+echo "Please run 'source $venv_name/bin/activate' to activate the virtual environment."

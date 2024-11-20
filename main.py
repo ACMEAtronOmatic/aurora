@@ -3,21 +3,26 @@ from argparse import ArgumentParser
 import numpy as np
 import torch
 
-from data_download import download_era5, make_batch
-from generate_outputs import generate_outputs, visualize_outputs, era5_comparison
-from check_configs import check_configs
+from data.era5_download import download_era5, make_batch
+from data.gfs_download import download_gfs
+from inference.generate_outputs import generate_outputs, visualize_outputs, era5_comparison
+from inference.check_configs import check_configs
 from aurora import Aurora
 
 def main():
     DESCRIPTION = 'Aurora Module'
     parser = ArgumentParser(description = DESCRIPTION)
 
-    parser.add_argument('yaml_file', help = 'YAML file with training guidelines.')
+    parser.add_argument('yaml_file', help = 'YAML file with data & training guidelines.')
+    parser.add_argument("--gfs", action = "store_true", help = "Download GFS data to compare with ERA5")
 
     args = parser.parse_args()
 
+    use_gfs = args.gfs
+
     with open(args.yaml_file, 'r') as file:
         config = yaml.safe_load(file)
+        # TODO: add GFS data checks to the config_checker
         config = check_configs(config)
         print("Configs loaded!")
 
@@ -55,6 +60,14 @@ def main():
                           data_path=surface_path)
 
     print("ERA5 Baseline: ", baseline.keys(), baseline[list(baseline.keys())[0]].shape)
+
+    if use_gfs:
+        # Returns a list of te GFS data
+        gfs_paths = download_gfs(config)
+
+        # Compare GFS data with ERA5 data
+        
+
     
     # Create batch, (step - 1) >= 0
     print("Making batch...")
