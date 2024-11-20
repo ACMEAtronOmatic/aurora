@@ -7,9 +7,9 @@ import numpy as np
 import os
 import xarray as xr
 
-def generate_outputs(model, batch, steps=28):
+def generate_outputs(model, batch, steps=28, device="cuda"):
     model.eval()
-    model = model.to("cuda")
+    model = model.to(device)
 
     with torch.inference_mode():
         preds = [pred.to("cpu") for pred in rollout(model, batch, steps=steps)]

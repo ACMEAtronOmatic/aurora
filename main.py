@@ -91,7 +91,7 @@ def main():
     variable = config['inference']['variable']
 
     print("Generating outputs...")
-    preds = generate_outputs(model, batch, steps=steps)
+    preds = generate_outputs(model, batch, steps=steps, device=device)
     print("Outputs generated!")
 
     print("Visualizing...")
