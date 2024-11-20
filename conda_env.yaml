@@ -7,6 +7,12 @@
 # You should not manually edit this file.
 # Instead edit the corresponding pyproject.toml file.
 #
+name: aurora_env
+channels:
+  - conda-forge
+  - rapidsai
+  - nvidia
+  - defaults
 dependencies:
   - python=3.10
   - build
@@ -16,14 +22,13 @@ dependencies:
   - dask
   - einops
   - ghp-import
-  - huggingface-hub
   - joblib
   - jupyter-book
   - matplotlib
   - mypy
   - netcdf4
   - numpy
-  - opencv-python
+  - opencv
   - pathlib
   - pre-commit
   - pytest
@@ -31,6 +36,9 @@ dependencies:
   - ruff==0.4.1
   - scipy
   - timm==0.6.13
-  - torch
+  - pytorch
   - wheel
   - xarray
+  - pip
+  - pip:
+    - huggingface-hub
