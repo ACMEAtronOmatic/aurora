@@ -8,16 +8,16 @@ import os
 
 
 def download_era5(configs):
-    DOWNLOAD_PATH = configs['data']['download_path']
-    STATIC_VARIABLES = configs['data']['static_variables']
-    STATIC_TAG = configs['data']['static_tag']
-    SURFACE_VARIABLES = configs['data']['surface_variables']
-    ATMO_VARIABLES = configs['data']['atmo_variables']
-    PRESSURES = configs['data']['pressures']
-    TIMES = configs['data']['times']
-    YEAR = configs['data']['year']
-    MONTH = configs['data']['month']
-    DAYS = configs['data']['days']
+    DOWNLOAD_PATH = configs['download_path']
+    STATIC_VARIABLES = configs['static_variables']
+    STATIC_TAG = configs['static_tag']
+    SURFACE_VARIABLES = configs['surface_variables']
+    ATMO_VARIABLES = configs['atmo_variables']
+    PRESSURES = configs['pressures']
+    TIMES = configs['times']
+    YEAR = configs['year']
+    MONTH = configs['month']
+    DAYS = configs['days']
 
     # Download the static variables.
     c = cdsapi.Client()

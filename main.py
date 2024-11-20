@@ -22,8 +22,9 @@ def main():
 
     with open(args.yaml_file, 'r') as file:
         config = yaml.safe_load(file)
+        print(config)
         # TODO: add GFS data checks to the config_checker
-        config = check_configs(config)
+        # config = check_configs(config)
         print("Configs loaded!")
 
 
@@ -43,8 +44,19 @@ def main():
     print("Using device: ", device)
     torch.set_default_device(device)
 
+    if use_gfs:
+        # Download GFS data if it is not already downloaded
+        download_gfs(config['data']['gfs'])
+
+        # Process GFS data
+        gfs_ds, gfs_varlist = process_gfs(config['data']['gfs'])
+
+        # TODO: Compare GFS data with ERA5 data
+
+        exit(0)
+
     # Download ERA5 data
-    static_path, surface_path, atmos_path = download_era5(config)
+    static_path, surface_path, atmos_path = download_era5(config['data']['era5'])
 
     if config['inference']['variable'] == "wind":
         comparison_variable = 'wind'
@@ -60,17 +72,6 @@ def main():
                           data_path=surface_path)
 
     print("ERA5 Baseline: ", baseline.keys(), baseline[list(baseline.keys())[0]].shape)
-
-    if use_gfs:
-        # Download GFS data if it is not already downloaded
-        download_gfs(config)
-
-        # Process GFS data
-        gfs_ds, gfs_varlist = process_gfs(config)
-
-        # TODO: Compare GFS data with ERA5 data
-
-        
 
     
     # Create batch, (step - 1) >= 0

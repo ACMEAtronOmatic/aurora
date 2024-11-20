@@ -20,6 +20,7 @@ from tempfile import NamedTemporaryFile
 
 import xarray as xr
 import cfgrib
+import dask
 
 RD = 287.052874247 # Dry Air Gas Constant
 CP = 1003.5 # Specific Heat Dry Air
