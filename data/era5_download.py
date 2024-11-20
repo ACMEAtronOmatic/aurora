@@ -98,27 +98,27 @@ def make_batch(static_path, surface_path, atmos_path, step):
         surf_vars={
             # First select time points `i` and `i - 1`. Afterwards, `[None]` inserts a
             # batch dimension of size one.
-            "2t": torch.from_numpy(surface_ds["t2m"].values[[step - 1, step]][None]),
-            "10u": torch.from_numpy(surface_ds["u10"].values[[step - 1, step]][None]),
-            "10v": torch.from_numpy(surface_ds["v10"].values[[step - 1, step]][None]),
-            "msl": torch.from_numpy(surface_ds["msl"].values[[step - 1, step]][None]),
+            "2t": torch.from_numpy(surface_ds["t2m"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "10u": torch.from_numpy(surface_ds["u10"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "10v": torch.from_numpy(surface_ds["v10"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "msl": torch.from_numpy(surface_ds["msl"].values[[step - 1, step]][None]).to(dtype=torch.float32),
         },
         static_vars={
             # The static variables are constant, so we just get them for the first time.
-            "z": torch.from_numpy(static_ds["z"].values[0]),
-            "slt": torch.from_numpy(static_ds["slt"].values[0]),
-            "lsm": torch.from_numpy(static_ds["lsm"].values[0]),
+            "z": torch.from_numpy(static_ds["z"].values[0]).to(dtype=torch.float32),
+            "slt": torch.from_numpy(static_ds["slt"].values[0]).to(dtype=torch.float32),
+            "lsm": torch.from_numpy(static_ds["lsm"].values[0]).to(dtype=torch.float32),
         },
         atmos_vars={
-            "t": torch.from_numpy(atmos_ds["t"].values[[step - 1, step]][None]),
-            "u": torch.from_numpy(atmos_ds["u"].values[[step - 1, step]][None]),
-            "v": torch.from_numpy(atmos_ds["v"].values[[step - 1, step]][None]),
-            "q": torch.from_numpy(atmos_ds["q"].values[[step - 1, step]][None]),
-            "z": torch.from_numpy(atmos_ds["z"].values[[step - 1, step]][None]),
+            "t": torch.from_numpy(atmos_ds["t"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "u": torch.from_numpy(atmos_ds["u"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "v": torch.from_numpy(atmos_ds["v"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "q": torch.from_numpy(atmos_ds["q"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "z": torch.from_numpy(atmos_ds["z"].values[[step - 1, step]][None]).to(dtype=torch.float32),
         },
         metadata=Metadata(
-            lat=torch.from_numpy(surface_ds.latitude.values),
-            lon=torch.from_numpy(surface_ds.longitude.values),
+            lat=torch.from_numpy(surface_ds.latitude.values).to(dtype=torch.float32),
+            lon=torch.from_numpy(surface_ds.longitude.values).to(dtype=torch.float32),
             # Converting to `datetime64[s]` ensures that the output of `tolist()` gives
             # `datetime.datetime`s. Note that this needs to be a tuple of length one:
             # one value for every batch element.
@@ -132,9 +132,11 @@ def make_batch(static_path, surface_path, atmos_path, step):
 
 if __name__ == "__main__":
     # Download ERA5 data
-    static_path, surface_path, atmos_path = download_era5()
+    import yaml
+    configs = yaml.safe_load(open("../configs/configs.yml", "r"))
+    static_path, surface_path, atmos_path = download_era5(configs['data']['era5'])
 
     # Create batch, (step - 1) >= 0
     batch = make_batch(static_path, surface_path, atmos_path, 1)
     print("Batch created!")
-    print(batch)
+    # print(batch)
