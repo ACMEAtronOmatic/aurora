@@ -18,10 +18,34 @@ import copy
 from argparse import ArgumentParser
 from tempfile import NamedTemporaryFile
 
-#
-# aws s3 ls --no-sign-request s3://noaa-gfs-bdp-pds/gfs.YYYYMMDD/HH/atmos/gfs.tHHz.pgrb2.0p25.f[000...120...1]
-# aws s3 ls --no-sign-request s3://noaa-gfs-bdp-pds/gfs.YYYYMMDD/HH/atmos/gfs.tHHz.pgrb2.0p25.f[000...120...1].idx
-#
+import xarray as xr
+import cfgrib
+
+RD = 287.052874247 # Dry Air Gas Constant
+CP = 1003.5 # Specific Heat Dry Air
+RDDCP = RD/CP # Gas Constant / Specific Heat
+CPRRD = CP/RD # Specific Heat / Gas Constant
+P00 = 100000. # Reference Pressure
+
+# variables to exclude from gfs 
+VAREXCLUSIONLIST = ['time', 'step', 'isobaricInhPa', 'latitude', 'longitude', 'valid_time', 'atmosphereSingleLayer', 'surface']
+
+
+def derived_gfs_fields(ds, varlist):
+    '''
+    Calculate derived variables from GFS fields
+    '''
+    pressures = np.float32(ds['isobaricInhPa'].values * 100.) # Convert from hPa to Pa
+    ds['tv'] = ds['t'] * (1 + 0.608 * ds['q']) # Virtual Temperature
+    ds['theta'] = ds['tv'] * (P00 / pressures[:, None, None])**RDDCP # Potential Temperature
+    ds['ns2'] = -1.0 * RD * ds['tv'] / pressures[:,None,None] * np.log(ds['theta']).diff("isobaricInhPa", 1, label = 'lower') / np.diff(pressures, 1)[:,None,None]
+    ds['ns2'][-1,:,:] = ds['ns2'][-2,:,:] # Brunt-Vaisala Frequency
+
+    varlist.append('tv')
+    varlist.append('theta')
+    varlist.append('ns2')
+
+    return ds, varlist
 
 def datetime_range(start=None, end=None, deltat=3600.):
     '''
@@ -219,7 +243,6 @@ def build_archive(dtg, forecastHours, archDir, config, noclobber, model='gfs'):
                             print("Unknown failure, retrying.")
                             time.sleep(1)
 
-
 def download_gfs(config, nproc = 4, noclobber = False):
     '''
     Download GFS data from NOAA AWS, based on YAML configuration files.
@@ -265,13 +288,49 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
     if not gfs_data_missing:
         print("All GFS data is already downloaded.")
-        return all_dir_paths
+        return
 
     if not archDir.is_dir(): archDir.mkdir(parents=True, exist_ok = True)
 
     Parallel(n_jobs=nproc)(delayed(build_archive)(d, forecastHours, archDir, config, noclobber) for d in tqdm(dtgrange, desc = 'DTG'))
 
-    return all_dir_paths
+    return
+
+def process_gfs(config):
+    data_path = Path(config['archive'])
+
+    if not data_path.exists():
+        raise FileNotFoundError(f"Directory does not exist: {data_path}")
+    gribFiles = sorted(data_path.glob('*/*grb2'))
+    numFiles = len(gribFiles)
+
+    gribFileFirst = gribFiles[0]
+    varList = []
+
+    print("Extracting values from first grib file.")
+    with cfgrib.open_dataset(gribFileFirst) as ds:
+        ny = ds.dims['latitude']
+        nx = ds.dims['longitude']
+        nz = ds.dims['isobaricInhPa']
+        pressures = np.float32(ds['isobaricInhPa'].values * 100.)
+        for var in ds.variables:
+            if var not in VAREXCLUSIONLIST:
+                varList.append(var)
+
+    print("Dimensions (x, y, z): ", nx, ny, nz)
+    print("Pressures: ", pressures)
+    print("Variables: ", varList)
+
+    print("\nOpening whole dataset...")
+    ds = xr.open_mfdataset(gribFiles, concat_dim = 'time', combine = 'nested',  engine = 'cfgrib',  parallel = True)
+
+    # Calculate derived variables
+    print("Calculating derived variables...")
+    ds, varList = derived_gfs_fields(ds, varList)
+
+    return ds, varList
+
+
 
 if __name__ == '__main__':
     download_gfs()

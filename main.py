@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from data.era5_download import download_era5, make_batch
-from data.gfs_download import download_gfs
+from data.gfs_download import download_gfs, process_gfs
 from inference.generate_outputs import generate_outputs, visualize_outputs, era5_comparison
 from inference.check_configs import check_configs
 from aurora import Aurora
@@ -62,10 +62,14 @@ def main():
     print("ERA5 Baseline: ", baseline.keys(), baseline[list(baseline.keys())[0]].shape)
 
     if use_gfs:
-        # Returns a list of te GFS data
-        gfs_paths = download_gfs(config)
+        # Download GFS data if it is not already downloaded
+        download_gfs(config)
 
-        # Compare GFS data with ERA5 data
+        # Process GFS data
+        gfs_ds, gfs_varlist = process_gfs(config)
+
+        # TODO: Compare GFS data with ERA5 data
+
         
 
     
