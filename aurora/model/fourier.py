@@ -76,14 +76,14 @@ class FourierExpansion(nn.Module):
             raise ValueError("The dimensionality must be a multiple of two.")
 
         # Always perform the expansion with `float64`s to avoid numerical accuracy shenanigans.
-        x = x.double()
+        x = x.float()
 
-        wavelengths = torch.logspace(
+        wavelengths = torch.tensor(np.logspace(
             math.log10(self.lower),
             math.log10(self.upper),
             d // 2,
-            base=10,
-            device=x.device,
+            base=10),
+            # device=x.device,
             dtype=x.dtype,
         )
         prod = torch.einsum("...i,j->...ij", x, 2 * np.pi / wavelengths)

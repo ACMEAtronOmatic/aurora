@@ -12,7 +12,7 @@ def generate_outputs(model, batch, steps=28, device="cuda"):
     model = model.to(device)
 
     with torch.inference_mode():
-        preds = [pred.to("cpu") for pred in rollout(model, batch, steps=steps)]
+        preds = [pred.to(device) for pred in rollout(model, batch, steps=steps)]
 
 
     return preds
@@ -46,8 +46,8 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
                 ax2.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
 
             elif variable == "wind":
-                u = pred.surf_vars["10u"][0, 0].numpy()
-                v = pred.surf_vars["10v"][0, 0].numpy()
+                u = pred.surf_vars["10u"][0, 0].cpu().numpy()
+                v = pred.surf_vars["10v"][0, 0].cpu().numpy()
 
                 u_truth = np.array(comparison_data["u10"][i])
                 v_truth = np.array(comparison_data["v10"][i])
@@ -110,11 +110,11 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             ax.set_aspect('auto')
 
             if variable == "2t":
-                ax.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+                ax.imshow(pred.surf_vars["2t"][0, 0].cpu().numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
 
             elif variable == "wind":
-                u = pred.surf_vars["10u"][0, 0].numpy()
-                v = pred.surf_vars["10v"][0, 0].numpy()
+                u = pred.surf_vars["10u"][0, 0].cpu().numpy()
+                v = pred.surf_vars["10v"][0, 0].cpu().numpy()
 
                 # Calculate wind speed
                 speed = np.sqrt(u**2 + v**2)

@@ -9,6 +9,9 @@ from inference.generate_outputs import generate_outputs, visualize_outputs, era5
 from inference.check_configs import check_configs
 from aurora import Aurora
 
+import os
+os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+
 def main():
     DESCRIPTION = 'Aurora Module'
     parser = ArgumentParser(description = DESCRIPTION)
