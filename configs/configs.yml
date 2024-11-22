@@ -1,7 +1,7 @@
 ---
 data:
   era5:
-    download_path: "../downloads"
+    download_path: "downloads"
     static_variables: ["geopotential", "land_sea_mask", "soil_type"]
     static_tag: gls
     surface_variables: ["10m_u_component_of_wind", "10m_v_component_of_wind", "2m_temperature", "mean_sea_level_pressure"]
@@ -10,7 +10,7 @@ data:
     times: [0, 6, 12, 18]
     year: 2023
     month: 1
-    days: [1]
+    days: [1, 2, 3, 4, 5, 6, 7, 8]
   gfs:
     all: &all_levels
       - '50 mb'
@@ -28,12 +28,12 @@ data:
       - '1000 mb'
     time:
       start: 2023010100
-      end: 2023010200
+      end: 2023010800
       interval: 6
       forecast_start: 0
-      forecast_end: 5
+      forecast_end: 0
       forecast_interval: 1
-    archive: '../downloads'
+    archive: 'downloads'
     variables:
       TMP: *all_levels
       UGRD: *all_levels
@@ -51,4 +51,4 @@ inference:
   checkpoint: "aurora-0.25-pretrained.ckpt"
   use_lora: false
   steps: 28
-  variable: "wind"
+  variable: "temp"

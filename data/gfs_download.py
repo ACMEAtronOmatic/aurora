@@ -222,8 +222,9 @@ def build_archive(dtg, forecastHours, archDir, config, noclobber, model='gfs'):
         with open(fullPath, 'wb') as f:
             for var in variables.keys():
                 for level in variables[var]:
-                    print(fullday, fhr, var, level, fcstLookup)
-                    print(lookup[var][level][fcstLookup])
+                    print("Day:", fullday, "IC:", hh, "FHR:", fhr, "Var:", var, "Level:", level, "FCST:", fcstLookup)
+                    # print(fullday, fhr, var, level, fcstLookup)
+                    # print(lookup[var][level][fcstLookup])
 
                     header = { "Range" : lookup[var][level][fcstLookup] }
                     for tryNum in  range(3):
@@ -264,10 +265,18 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
     '''
 
+    start = config['time']['start']
+    end = config['time']['end']
+    archDir = Path(config['archive'])
+
+    # Check if the processed gfs data already exists in the archive folder
+    if os.path.exists(os.path.join(archDir, f"gfs_{start}_{end}.nc")):
+        print("Processed GFS data already found")
+        return
+
     sdtg = datetime.strptime(str(config['time']['start']), '%Y%m%d%H')
     edtg = datetime.strptime(str(config['time']['end']), '%Y%m%d%H')
     interval = int(config['time']['interval'])
-    archDir = Path(config['archive'])
 
     dtgrange = datetime_range(sdtg, edtg, interval*3600)
 
@@ -282,7 +291,8 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
     gfs_data_missing = False
     for d in all_dir_paths:
-        if not os.path.exists(d):
+        print(d)
+        if not os.path.isdir(d):
             print(f"At least one day of GFS data '{d}' is missing. Downloading...")
             gfs_data_missing = True
             break
@@ -299,9 +309,12 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
 def process_gfs(config):
     data_path = Path(config['archive'])
+    start_date = config['time']['start']
+    end_date = config['time']['end']
 
     if not data_path.exists():
         raise FileNotFoundError(f"Directory does not exist: {data_path}")
+    
     gribFiles = sorted(data_path.glob('*/*grb2'))
     numFiles = len(gribFiles)
 
@@ -323,13 +336,38 @@ def process_gfs(config):
     print("Variables: ", varList)
 
     print("\nOpening whole dataset...")
-    ds = xr.open_mfdataset(gribFiles, concat_dim = 'time', combine = 'nested',  engine = 'cfgrib',  parallel = True)
+
+    try:
+        ds = xr.open_mfdataset(gribFiles, concat_dim = 'time', combine = 'nested',  engine = 'cfgrib',  parallel = True)
+    except:
+        raise Exception(f"Failed to open dataset with xr.open_mfdataset")
+    
+    try:
+        datasets = []
+        for file in gribFiles:
+                ds = xr.open_dataset(file)
+                datasets.append(ds)
+
+        ds = xr.concat(datasets, dim='time')
+    except:
+        print(f"Failed to open dataset with xr.open_dataset")
+        exit(0)
+
+
+    # GFS Times
+    print("GFS Times: ", ds['time'].values)
 
     # Calculate derived variables
     print("Calculating derived variables...")
     ds, varList = derived_gfs_fields(ds, varList)
 
-    return ds, varList
+    save_path = os.path.join(data_path, f"gfs_{start_date}_{end_date}.nc")
+    ds.to_netcdf(save_path)
+
+    print("New GFS Vars: ", varList)
+    print("Saved to: ", save_path)
+
+    return save_path
 
 
 
