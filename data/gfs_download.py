@@ -331,9 +331,10 @@ def process_gfs(config):
             if var not in VAREXCLUSIONLIST:
                 varList.append(var)
 
-    print("Dimensions (x, y, z): ", nx, ny, nz)
+    print("All GFS Dimensions: ", ds.dims)
+    print("Sizes (x, y, z): ", nx, ny, nz)
     print("Pressures: ", pressures)
-    print("Variables: ", varList)
+    print("Var: ", varList)
 
     print("\nOpening whole dataset...")
 
@@ -354,12 +355,10 @@ def process_gfs(config):
         exit(0)
 
 
-    # GFS Times
-    print("GFS Times: ", ds['time'].values)
-
     # Calculate derived variables
     print("Calculating derived variables...")
     ds, varList = derived_gfs_fields(ds, varList)
+    ds = ds.rename({"isobaricInhPa": "level"})
 
     save_path = os.path.join(data_path, f"gfs_{start_date}_{end_date}.nc")
     ds.to_netcdf(save_path)
@@ -372,4 +371,17 @@ def process_gfs(config):
 
 
 if __name__ == '__main__':
-    download_gfs()
+    import pprint
+    DESCRIPTION = 'GFS Download Module'
+    parser = ArgumentParser(description = DESCRIPTION)
+
+    parser.add_argument('yaml_file', help = 'YAML file with data & training guidelines.')
+
+    args = parser.parse_args()
+
+    with open(args.yaml_file, 'r') as file:
+        config = yaml.safe_load(file)
+        pprint.pprint(config)
+
+    download_gfs(config=config['data']['gfs'])
+    process_gfs(config=config['data']['gfs'])

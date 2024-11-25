@@ -12,7 +12,7 @@ data:
     month: 1
     days: [1, 2, 3, 4, 5, 6, 7, 8]
   gfs:
-    all: &all_levels
+    atmo: &atmo_levels
       - '50 mb'
       - '100 mb'
       - '150 mb'
@@ -26,6 +26,21 @@ data:
       - '850 mb'
       - '925 mb'
       - '1000 mb'
+    all_levels: &all_levels
+      - '50 mb'
+      - '100 mb'
+      - '150 mb'
+      - '200 mb'
+      - '250 mb'
+      - '300 mb'
+      - '400 mb'
+      - '500 mb'
+      - '600 mb'
+      - '700 mb'
+      - '850 mb'
+      - '925 mb'
+      - '1000 mb'
+      - 'surface'
     time:
       start: 2023010100
       end: 2023010800
@@ -35,20 +50,21 @@ data:
       forecast_interval: 1
     archive: 'downloads'
     variables:
-      TMP: *all_levels
-      UGRD: *all_levels
-      VGRD: *all_levels
-      RH: *all_levels
-      SPFH: *all_levels
-      CAPE:
+      TMP: *atmo_levels
+      UGRD: *atmo_levels
+      VGRD: *atmo_levels
+      RH: *atmo_levels
+      SPFH: *atmo_levels
+      MSLET:
+        - 'mean sea level'
+      SOTYP:
         - 'surface'
-      CIN:
+      HGT: *all_levels
+      LAND:
         - 'surface'
-      PWAT:
-        - 'entire atmosphere (considered as a single layer)'
 inference:
   model: "microsoft/aurora"
   checkpoint: "aurora-0.25-pretrained.ckpt"
   use_lora: false
   steps: 28
-  variable: "temp"
+  variable: "msl"

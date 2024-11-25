@@ -63,7 +63,8 @@ myradar = [
     "opencv-python", 
     "joblib", 
     "cfgrib",
-    "dask"
+    "dask",
+    "pytorch-lightning"
 ]
 
 [project.urls]

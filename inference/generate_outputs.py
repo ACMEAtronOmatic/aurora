@@ -40,10 +40,13 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             ax2.set_aspect('auto')
 
             if variable == "2t":
-                truth = np.array(comparison_data["t2m"][i])
+                temp_truth = np.array(comparison_data["t2m"][i])
+                temp_pred = pred.surf_vars["2t"][0, 0].numpy()
 
-                ax1.imshow(truth - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
-                ax2.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+                print("Temp Range: ", np.min(temp_truth), np.max(temp_truth))
+
+                ax1.imshow(temp_truth - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+                ax2.imshow(temp_pred - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
 
             elif variable == "wind":
                 u = pred.surf_vars["10u"][0, 0].numpy()
@@ -60,6 +63,8 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
                 speed = np.sqrt(u**2 + v**2)
                 speed_truth = np.sqrt(u_truth**2 + v_truth**2)
 
+                print("Wind Speed Range: ", np.min(speed_truth), np.max(speed_truth))
+
                 # print("speed", speed.shape, "speed_truth", speed_truth.shape)
 
                 # Create wind barbs
@@ -71,8 +76,10 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
                 msl = pred.surf_vars["msl"][0, 0].numpy()
                 msl_truth = np.array(comparison_data["msl"][i])
 
-                ax1.imshow(msl, vmin=850, vmax=1050, cmap='turbo', transform=crs, extent=extent)
-                ax2.imshow(msl_truth, vmin=850, vmax=1050, cmap='turbo', transform=crs, extent=extent)
+                print("MSL Range: ", np.min(msl_truth), np.max(msl_truth))
+
+                ax1.imshow(msl, vmin=7500, vmax=11000, cmap='turbo', transform=crs, extent=extent)
+                ax2.imshow(msl_truth, vmin=7500, vmax=11000, cmap='turbo', transform=crs, extent=extent)
 
 
             ax1.coastlines(linewidth=0.7)
@@ -170,7 +177,7 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
         os.remove(f"temporary_{i}.jpg")
 
 
-def era5_comparison(data_path, steps=28, variable="temp", level=1000):
+def era5_comparison(data_path, steps=28, variable="temp", level="surface"):
     '''
     Generate arrays for each timestep from ERA5 data of the desired variable
     If data is surface, variables: t2m, msl, wind
@@ -189,16 +196,20 @@ def era5_comparison(data_path, steps=28, variable="temp", level=1000):
             data['v'] = ds['v10'].values[:steps]
         elif variable == "temp":
             data['t'] = ds['t2m'].values[:steps]
+        elif variable == "msl":
+            data['msl'] = ds['msl'].values[:steps]
         else:
             raise ValueError(f"Variable {variable} not supported")
 
 
     else: # pressure level, atmospheric data
         if variable == "wind":
-            data['u'] = ds['u'].sel(level=level).values[:steps]
-            data['v'] = ds['v'].sel(level=level).values[:steps]
+            data['u'] = ds['u'].sel(pressure_level=level).values[:steps]
+            data['v'] = ds['v'].sel(pressure_level=level).values[:steps]
         elif variable == "temp":
-            data['t'] = ds['t'].sel(level=level).values[:steps]
+            data['t'] = ds['t'].sel(pressure_level=level).values[:steps]
+        elif variable == "specific_humidity":
+            data['q'] = ds['q'].sel(pressure_level=level).values[:steps]
         else:
             raise ValueError(f"Variable {variable} not supported")
 
@@ -207,16 +218,16 @@ def era5_comparison(data_path, steps=28, variable="temp", level=1000):
     return data
 
 
-def gfs_comparison(data_path, steps=28, variable="t2m", level=1000):
+def gfs_comparison(data_path, steps=28, variable="temp", level=1000):
     '''
     Extract data for comparisons
-    Variables: t, u, v, r, q, cape, cin, pwat
-    Pressure Levels: 1000, ...
+    Variables: 't', 'u', 'v', 'r', 'q', 
+    'meanSea', 'mslet', 'slt', 'gh', 
+    'orog', 'lsm', 'cape', 'cin', 'pwat',
+    'tv', 'theta', 'ns2'
+    Pressure Levels: which of these are surface vs. at pressure levels?
     '''        
     ds = xr.open_dataset(data_path, engine="netcdf4")
-
-    print("GFS Shape: ", {dim: ds.sizes[dim] for dim in ds.dims})
-    print("GFS Times: ", ds.time.values)
 
     data = {}
 
@@ -226,6 +237,10 @@ def gfs_comparison(data_path, steps=28, variable="t2m", level=1000):
     elif variable == "temp":
         # t, r, q, cape, cin, pwat
         data['t'] = ds['t'].sel(isobaricInhPa=level).values[:steps]
+    elif variable == "specific_humidity":
+        data['q'] = ds['q'].sel(isobaricInhPa=level).values[:steps]
+    elif variable == "msl":
+        data['msl'] = ds['mslet'].values[:steps]
     else:
         raise ValueError(f"Variable {variable} not supported")
 
@@ -261,18 +276,40 @@ def visualize_gfs_era5(era5_data, gfs_data, steps=28, variable="wind", output_pa
             speed_era5 = np.sqrt(u_era5**2 + v_era5**2)
             speed_gfs = np.sqrt(u_gfs**2 + v_gfs**2)
 
-            # Create wind barbs
+            print("Wind Range: ", np.min(speed_gfs), np.max(speed_gfs))
 
             # Creat imshow color plot
-            ax1.imshow(speed_era5, vmin=0, vmax=30, cmap='turbo', transform=crs, extent=extent)
-            ax2.imshow(speed_gfs, vmin=0, vmax=30, cmap='turbo', transform=crs, extent=extent)
+            ax1.imshow(speed_era5, vmin=90000, vmax=110000, cmap='turbo', transform=crs, extent=extent)
+            ax2.imshow(speed_gfs, vmin=90000, vmax=110000, cmap='turbo', transform=crs, extent=extent)
 
 
         elif variable == "temp":
             t_era = era5_data['t'][t]
             t_gfs = gfs_data['t'][t]
+
+            print("Temp Range: ", np.min(t_gfs), np.max(t_gfs))
+
             ax1.imshow(t_era - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
             ax2.imshow(t_gfs - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
+
+        elif variable == "specific_humidity":
+            q_era = era5_data['q'][t]
+            q_gfs = gfs_data['q'][t]
+
+            print("Q Range: ", np.min(q_gfs), np.max(q_gfs))
+
+            ax1.imshow(q_era, vmin=0, vmax=0.05, cmap='turbo', transform=crs, extent=extent)
+            ax2.imshow(q_gfs, vmin=0, vmax=0.05, cmap='turbo', transform=crs, extent=extent)
+
+        elif variable == "msl":
+            msl_era = era5_data['msl'][t]
+            msl_gfs = gfs_data['msl'][t]
+
+            print("MSL Range: ", np.min(msl_gfs), np.max(msl_gfs))
+
+            ax1.imshow(msl_era, vmin=90000, vmax=110000, cmap='turbo', transform=crs, extent=extent)
+            ax2.imshow(msl_gfs, vmin=90000, vmax=110000, cmap='turbo', transform=crs, extent=extent)
+
 
         else:
             raise ValueError(f"Variable {variable} not supported")
@@ -337,10 +374,6 @@ def visualize_gfs_era5(era5_data, gfs_data, steps=28, variable="wind", output_pa
     # Delete temporary images
     for i in images:
         os.remove(i)
-
-
-        
-        
 
 
 

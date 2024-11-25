@@ -26,11 +26,19 @@ def download_era5(configs):
     # Surface & Atmospheric Variables must be at every time step
     # NOTE: in order to make a prediction, Aurora needs [t-1, t] to predict [t+1]
 
-    static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}.nc"
-    surface_path = f"{DOWNLOAD_PATH}/{YEAR}-{MONTH:02d}-{DAYS[0]:02d}_{DAYS[-1]:02d}-surface.nc"
-    atmos_path = f"{DOWNLOAD_PATH}/{YEAR}-{MONTH:02d}-{DAYS[0]:02d}_{DAYS[-1]:02d}-atmospheric.nc"
+    static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}_raw.nc"
+    surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface_raw.nc"
+    atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric_raw.nc"
 
-    if not os.path.exists(static_path):
+    processed_static_path = static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}.nc"
+    processed_surface_path = surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface.nc"
+    processed_atmos_path = atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric.nc"
+
+    all_downloaded = True
+
+    if not os.path.exists(processed_static_path):
+        all_downloaded = False
+
         c.retrieve(
             "reanalysis-era5-single-levels",
             {
@@ -47,7 +55,9 @@ def download_era5(configs):
     print("Static variables downloaded!")
 
     # Download the surface-level variables.
-    if not os.path.exists(surface_path):
+    if not os.path.exists(processed_surface_path):
+        all_downloaded = False
+
         c.retrieve(
             "reanalysis-era5-single-levels",
             {
@@ -64,7 +74,9 @@ def download_era5(configs):
     print("Surface-level variables downloaded!")
 
     # Download the atmospheric variables.
-    if not os.path.exists(atmos_path):
+    if not os.path.exists(processed_atmos_path):
+        all_downloaded = False
+
         c.retrieve(
             "reanalysis-era5-pressure-levels",
             {
@@ -81,7 +93,26 @@ def download_era5(configs):
         )
     print("Atmospheric variables downloaded!")
 
-    return static_path, surface_path, atmos_path
+    if all_downloaded:
+        return processed_static_path, processed_surface_path, processed_atmos_path
+
+    # Read in data and rename dimensions
+    static_ds = xr.open_dataset(static_path, engine="netcdf4")
+    print("ERA Statics Shape: ", {dim: static_ds.sizes[dim] for dim in static_ds.dims})
+    static_ds = static_ds.rename({"valid_time": "time"})
+    static_ds.to_netcdf(processed_static_path)
+
+    surface_ds = xr.open_dataset(surface_path, engine="netcdf4")
+    print("ERA Surface Shape: ", {dim: surface_ds.sizes[dim] for dim in surface_ds.dims})
+    surface_ds = surface_ds.rename({"valid_time": "time"})
+    surface_ds.to_netcdf(processed_surface_path)
+
+    atmos_ds = xr.open_dataset(atmos_path, engine="netcdf4")
+    print("ERA Atmos Shape: ", {dim: atmos_ds.sizes[dim] for dim in atmos_ds.dims})
+    atmos_ds = atmos_ds.rename({"valid_time": "time"})
+    atmos_ds.to_netcdf(processed_atmos_path)
+
+    return processed_static_path, processed_surface_path, processed_atmos_path
 
 def make_batch(static_path, surface_path, atmos_path, step):
     '''

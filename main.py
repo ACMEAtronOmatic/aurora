@@ -8,6 +8,7 @@ from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
 from inference.generate_outputs import generate_outputs, visualize_outputs, era5_comparison, gfs_comparison, visualize_gfs_era5
 from inference.check_configs import check_configs
+from data.unet_data_loader import GFSDataset
 from aurora import Aurora
 
 # If using MPS, some operations not yet implemented
@@ -41,11 +42,13 @@ def main():
     parser.add_argument('yaml_file', help = 'YAML file with data & training guidelines.')
     parser.add_argument("-g", "--gfs", action = "store_true", help = "Download GFS data to compare with ERA5")
     parser.add_argument("-l", "--level", default=1000, help= "Pressure level to use in visualizations")
+    parser.add_argument("-v", "--visualize", action = "store_true", help = "Visualize predictions")
 
     args = parser.parse_args()
 
     use_gfs = args.gfs
     level = int(args.level)
+    visualize = args.visualize
 
     with open(args.yaml_file, 'r') as file:
         config = yaml.safe_load(file)
@@ -71,18 +74,22 @@ def main():
     print("Using device: ", device)
     torch.set_default_device(device)
 
-    # Download ERA5 data                
+    # Download ERA5 data      
+    # NOTE: valid_time was renamed to time          
     static_path, surface_path, atmos_path = download_era5(config['data']['era5'])
 
     era_level = "surface" if level==1000 else level
+    print("ERA5 Level: ", era_level)
     # era_variable = era_dict[config['inference']['variable']][era_level if era_level == "surface" else "atmo"]
 
-    era5_baseline = era5_comparison(steps=config['inference']['steps'], 
-                          variable=config['inference']['variable'], 
-                          data_path=surface_path, 
-                          level=era_level)
+    if visualize:
+        era_data = surface_path if era_level == "surface" else atmos_path
+        era5_baseline = era5_comparison(steps=config['inference']['steps'], 
+                            variable=config['inference']['variable'], 
+                            data_path=era_data, 
+                            level=era_level)
 
-    print("ERA5 Baseline: ", era5_baseline.keys(), era5_baseline[list(era5_baseline.keys())[0]].shape)
+        print("ERA5 Baseline: ", era5_baseline.keys(), era5_baseline[list(era5_baseline.keys())[0]].shape)
 
     if use_gfs:
         start = config['data']['gfs']['time']['start']
@@ -95,22 +102,28 @@ def main():
             download_gfs(config['data']['gfs'])
 
             # Process GFS data
+            # NOTE: isobaricInhPa was renamed to pressure
             gfs_path = process_gfs(config['data']['gfs'])
         else:
             print("Processed GFS Data for this time range found")
 
-        gfs_baseline = gfs_comparison(gfs_path, 
-                                      steps=config['inference']['steps'], 
-                                       variable=config['inference']['variable'], level=level)
-        
-        print("GFS Baseline: ", gfs_baseline.keys(), gfs_baseline[list(gfs_baseline.keys())[0]].shape)
+        if visualize:
+            gfs_baseline = gfs_comparison(gfs_path, 
+                                        steps=config['inference']['steps'], 
+                                        variable=config['inference']['variable'], level=level)
+            
+            print("GFS Baseline: ", gfs_baseline.keys(), gfs_baseline[list(gfs_baseline.keys())[0]].shape)
 
-        visualize_gfs_era5(era5_data=era5_baseline, gfs_data=gfs_baseline,
-                            steps=config['inference']['steps'], variable=config['inference']['variable'],
-                              output_path="downloads", fps=4, format="mp4")
+            visualize_gfs_era5(era5_data=era5_baseline, gfs_data=gfs_baseline,
+                                steps=config['inference']['steps'], variable=config['inference']['variable'],
+                                output_path="downloads", fps=4, format="mp4")
+        
+        # Test torch dataset
+        unet_ds = GFSDataset(gfs_path=gfs_path, era_statics_path=static_path, configs=config)
+
+        unet_tensor = unet_ds.__getitem__(0)
+        
         exit(0)
-
-        
 
     
     # Create batch, (step - 1) >= 0
@@ -136,7 +149,7 @@ def main():
     print("Outputs generated!")
 
     print("Visualizing...")
-    visualize_outputs(preds, steps=steps, variable=variable, comparison_data=baseline)
+    visualize_outputs(preds, steps=steps, variable=variable, comparison_data=era5_baseline)
     print("Visualizations created!")
 
 if __name__ == "__main__":
