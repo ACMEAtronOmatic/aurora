@@ -8,7 +8,7 @@ from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
 from inference.generate_outputs import generate_outputs, visualize_outputs, era5_comparison, gfs_comparison, visualize_gfs_era5
 from inference.check_configs import check_configs
-from data.unet_data_loader import GFSDataset, GFSDataModule
+from data.dataloader import GFSDataset, GFSDataModule
 from aurora import Aurora
 
 # If using MPS, some operations not yet implemented
