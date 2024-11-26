@@ -7,6 +7,8 @@ import xarray as xr
 import torch
 from PIL import Image
 
+from .gfs_download import download_gfs, process_gfs
+from .era5_download import download_static_era5
 
 class GFSDataset(torch.utils.data.Dataset):
     def __init__(self, gfs_path, era_statics_path, configs):
@@ -52,21 +54,56 @@ class GFSDataset(torch.utils.data.Dataset):
         return combined_tensor
 
 
-class CarvanaDataModule(pl.LightningDataModule):
-    def __init__(self, image_dir, mask_dir, transform, train_size=0.9, batch_size=16):
+class GFSDataModule(pl.LightningDataModule):
+    '''
+    Should the data module download ERA5 data as well?
+    '''
+
+    def __init__(self, configs, train_size=0.9, batch_size=4):
         super().__init__()
-        self.image_dir = image_dir
-        self.mask_dir = mask_dir
-        self.transform = transform
+        self.configs = configs
         self.train_size = train_size
         self.batch_size = batch_size
 
+        start = self.configs['data']['gfs']['time']['start']
+        end = self.configs['data']['gfs']['time']['end']
+        archDir = self.configs['data']['gfs']['archive']
+        static_tag = self.configs['data']['era5']['static_tag']
+
+        self.gfs_path = os.path.join(archDir, f"gfs_{start}_{end}.nc")
+        self.static_path = f"{archDir}/static_{static_tag}.nc"
+
+
+
+    def prepare_data(self):
+        if not os.path.exists(self.gfs_path):
+            # Download GFS data if it is not already downloaded
+            print("Downloading GFS Data: ", self.gfs_path)
+            download_gfs(self.configs['data']['gfs'])
+
+            # Process GFS data
+            # NOTE: isobaricInhPa was renamed to pressure
+            process_gfs(self.configs['data']['gfs'])
+        else:
+            print("Processed GFS Data for this time range found")
+
+
+        if not os.path.exists(self.static_path):
+            # Download ERA5 static data if it is not already downloaded
+            print("Downloading ERA5 Static Data: ", self.static_path)
+            download_static_era5(self.configs['data']['gfs'])
+
     def setup(self, stage=None):
-        dataset = CarvanaDataset(self.image_dir, self.mask_dir, self.transform)
+        # Assign train/val datasets for use in dataloaders
+        dataset = GFSDataset(gfs_path=self.gfs_path,
+                              era_statics_path=self.static_path, configs=self.configs)
         training_size = math.floor(len(dataset) * self.train_size)
         val_size = len(dataset) - training_size
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        generator = torch.Generator(device=device).manual_seed(42)
         train_dataset, val_dataset = torch.utils.data.random_split(
-            dataset, [training_size, val_size]
+            dataset, [training_size, val_size], generator=generator
         )
 
         self.train_dataset = train_dataset

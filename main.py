@@ -8,7 +8,7 @@ from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
 from inference.generate_outputs import generate_outputs, visualize_outputs, era5_comparison, gfs_comparison, visualize_gfs_era5
 from inference.check_configs import check_configs
-from data.unet_data_loader import GFSDataset
+from data.unet_data_loader import GFSDataset, GFSDataModule
 from aurora import Aurora
 
 # If using MPS, some operations not yet implemented
@@ -119,9 +119,13 @@ def main():
                                 output_path="downloads", fps=4, format="mp4")
         
         # Test torch dataset
-        unet_ds = GFSDataset(gfs_path=gfs_path, era_statics_path=static_path, configs=config)
+        unet_ds = GFSDataModule(configs=config)
+        unet_ds.prepare_data()
+        unet_ds.setup()
 
-        unet_tensor = unet_ds.__getitem__(0)
+        batch = next(iter(unet_ds.train_dataloader()))
+
+        print(batch)
         
         exit(0)
 
