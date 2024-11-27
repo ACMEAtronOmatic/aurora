@@ -130,13 +130,9 @@ def main():
         print("Tensor Shape")
         print(torch_tensor.shape)
 
-        # Extract data for one variable from the tensor
         # [channel, level, lat, lon]
-        # q and level 850
-
-        q_tensor = torch_tensor[CHANNEL_MAP['q'], LEVEL_MAP[850], :, :]
-
-        visualize_tensor(q_tensor, output_path="test_q_tensor_visualization.png", variable="q")
+        for var in CHANNEL_MAP.keys():
+            visualize_tensor(torch_tensor, output_path=archDir, variable=var, format="mp4", fps=4)
 
         exit(0)
 
