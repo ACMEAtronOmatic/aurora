@@ -64,7 +64,9 @@ myradar = [
     "joblib", 
     "cfgrib",
     "dask",
-    "pytorch-lightning"
+    "pytorch-lightning", 
+    "torcheval", 
+    "pytorch-msssim"
 ]
 
 [project.urls]

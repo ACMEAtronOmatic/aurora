@@ -19,6 +19,63 @@ import torch
 import torch.nn as nn
 import math
 import pytorch_lightning as pl
+from pytorch_msssim import MS_SSIM
+
+from data.dataloader import CHANNEL_MAP, LEVEL_MAP
+
+ERA5_GLOBAL_RANGES = {
+    # Surface Variables
+    't2m': {'min': 170, 'max': 350},  # 2m Temperature [K]
+    'msl': {'min': 85000, 'max': 110000},  # Mean Sea Level Pressure [Pa]
+    'u10': {'min': -110, 'max': 110},  # 10m U-wind [m/s]
+    'v10': {'min': -80, 'max': 80},  # 10m V-wind [m/s]
+    
+    # Atmospheric Variables (at all pressure levels)
+    't': {'min': 170, 'max': 350},  # Temperature [K]
+    'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
+    'u': {'min': -110, 'max': 110},  # U-wind [m/s]
+    'v': {'min': -100, 'max': 100},  # V-wind [m/s]
+    'z': {'min': -1000, 'max': 60000},  # Geopotential Height [m]
+    
+}
+
+
+class Loss(nn.Module):
+    def __init__(self, remap=True, exponent=5.0, power=3.0, constant=1.0, channels=16):
+        super().__init__()
+
+        self.remap = remap
+        self.exponent = exponent
+        self.power = power
+        self.constant = constant
+
+        # NOTE: data range must be consistent, which requires remapping the channels
+        # To a consistent range of [0, 1]
+        # Need to determine global min and max for each channel that would work for GFS and ERA5
+        self.ms_ssim_module = MS_SSIM(data_range=1, size_average=True, channel=channels)
+
+    # x = UNet output, y = actual ERA5 data
+    def forward(self, x, y):
+        if self.remap:
+            # For each channel in x and y, remap to [0, 1]
+            for c in ERA5_GLOBAL_RANGES.keys():
+                for l in LEVEL_MAP.keys():
+                    x[c, l, :, :] = torch.clamp((x[c, l, :, :] - ERA5_GLOBAL_RANGES[c]['min']) / (ERA5_GLOBAL_RANGES[c]['max'] - ERA5_GLOBAL_RANGES[c]['min']), 0, 1)
+                    y[c, l, :, :] = torch.clamp((y[c, l, :, :] - ERA5_GLOBAL_RANGES[c]['min']) / (ERA5_GLOBAL_RANGES[c]['max'] - ERA5_GLOBAL_RANGES[c]['min']), 0, 1)
+
+        # MS SSIM is always non-negative
+        ssim_loss = 1 - self.ms_ssim_module(x, y)
+
+        weighting = torch.full_like(y, 1.0, dtype=torch.float32)
+        weighting = torch.exp(self.exponent * torch.pow(y, self.power)) + self.constant
+
+        pixel_loss = (0.5 * torch.mean(torch.multiply(weighting, torch.abs(x - y)))) + \
+                     (0.5 * torch.mean(torch.multiply(1 - weighting, torch.square(x - y))))
+
+        total_loss = ssim_loss + pixel_loss
+
+        return total_loss
+
 
 
 class SEAttnBlock(nn.Module):
@@ -201,6 +258,9 @@ class LightningGFSUnbiaser(pl.LightningModule):
         self.model = GFSUnbiaser(in_channels, out_channels, 
                                  feature_dims=feature_dims,
                                    use_se=use_se, r=r)
+        
+        self.loss_fxn = Loss(remap=True, exponent=5.0, power=3.0,
+                              constant=1.0, channels=out_channels)
 
     def forward(self, x):
         return self.model(x)
@@ -218,12 +278,12 @@ class LightningGFSUnbiaser(pl.LightningModule):
     #         self.log(f"{stage}_acc", acc, prog_bar=True)
     #         self.log(f"{stage}_f1", f1, prog_bar=True)
 
-    # def training_step(self, batch, batch_idx):
-    #     x, y = batch
-    #     logits = self.forward(x)
-    #     loss = F.binary_cross_entropy_with_logits(logits, y)
-    #     self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
-    #     return loss
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        logits = self.forward(x)
+        loss = self.loss_fxn.forward(logits, y)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
 
     # def validation_step(self, batch, batch_idx):
     #     self.evaluate(batch, "val")
