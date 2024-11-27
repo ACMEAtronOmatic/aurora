@@ -376,6 +376,34 @@ def visualize_gfs_era5(era5_data, gfs_data, steps=28, variable="wind", output_pa
         os.remove(i)
 
 
+def visualize_tensor(tensor, output_path="", variable="t"):
+    crs = ccrs.PlateCarree(central_longitude=180)
+
+    lon = np.arange(-180, 180, 0.25)
+    lat = np.arange(-90, 90, 0.25)
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
+
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(1, 1, 1, projection=crs) # ERA
+
+    tensor_values = tensor.numpy()
+
+    max = np.max(tensor_values)*1.01
+    min = np.min(tensor_values)*0.99
+
+    ax.imshow(tensor, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+    ax.coastlines(linewidth=0.7)
+
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    # ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black')
+
+    ax.set_title(variable)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    plt.tight_layout()
+    plt.savefig(output_path, bbox_inches='tight')
+
 
 if __name__ == "__main__":
     from data_download import download_era5, make_batch

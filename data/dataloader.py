@@ -10,6 +10,44 @@ from PIL import Image
 from .gfs_download import download_gfs, process_gfs
 from .era5_download import download_static_era5
 
+# Channel Map after concatenating ERA5 Static Variables
+CHANNEL_MAP = {
+    't': 0, 
+    'u': 1,
+    'v': 2,
+    'r': 3, 
+    'q': 4,
+    'mslet': 5, 
+    'slt': 6, 
+    'gh': 7,
+    'orog': 8, 
+    'lsm': 9,
+    'tv': 10,
+    'theta': 11,
+    'ns2': 12, 
+    'z_era': 13, 
+    'lsm_era': 14, 
+    'slt_era': 15
+}
+
+# 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000
+LEVEL_MAP = {
+    1000: 0,
+    925: 1,
+    850: 2,
+    700: 3,
+    600: 4,
+    500: 5,
+    400: 6,
+    300: 7,
+    250: 8,
+    200: 9,
+    150: 10,
+    100: 11,
+    50: 12
+}
+
+
 class GFSDataset(torch.utils.data.Dataset):
     def __init__(self, gfs_path, era_statics_path, configs):
         super().__init__()
@@ -22,6 +60,8 @@ class GFSDataset(torch.utils.data.Dataset):
         self.levels = self.gfs.level.values
 
         self.era_static = xr.open_dataset(self.era_statics_path, engine="netcdf4").isel(time=0)
+        print("ERA Statics Variables: ", self.era_static.data_vars.keys())
+
         self.era_tensor = torch.from_numpy(self.era_static.to_array().values).to(dtype=torch.float32)
         # Add a dimension for levels
         # Dimensions: ('variable', 'time', 'level', 'lat', 'lon')
@@ -37,13 +77,14 @@ class GFSDataset(torch.utils.data.Dataset):
         return len(self.times)
 
     def __getitem__(self, index):
-        # TODO: reimplement to get a batch of info from GFS + ERA at a particular time step
         # Return data at all levels and all variables
 
         gfs_slice = self.gfs.isel(time=index)
 
-        # Dimensions: [time, level, lat, lon]
-        # Which dimension is for variable?
+        # Print GFS Variables
+        print("GFS Variables: ", gfs_slice.data_vars.keys())
+
+        # Dimensions: [channel, level, lat, lon]
         gfs_tensor = torch.from_numpy(gfs_slice.to_array().values).to(dtype=torch.float32)
 
         print("GFS Tensor Shape: ", gfs_tensor.shape)
