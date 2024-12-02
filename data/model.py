@@ -56,6 +56,7 @@ class Loss(nn.Module):
 
     # x = UNet output, y = actual ERA5 data
     def forward(self, x, y):
+        # Use remap if data is not already in [0, 1]
         if self.remap:
             # For each channel in x and y, remap to [0, 1]
             for c in ERA5_GLOBAL_RANGES.keys():
@@ -77,7 +78,6 @@ class Loss(nn.Module):
         return total_loss
 
 
-
 class SEAttnBlock(nn.Module):
     '''
     Squeeze-Excitation block to determine channel weightings
@@ -94,7 +94,7 @@ class SEAttnBlock(nn.Module):
         # Define the functions/layers that will be used
 
         # Adaptive pooling allows you to define the size of the output
-        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.pool = nn.AdaptiveAvgPool2d(1) # Global Average Pooling
 
         # Define the linear layer
         self.fc = nn.Sequential(
@@ -122,12 +122,10 @@ class Conv3DBlock(nn.Module):
     '''
     Convolutional 3D block for spatio-temporal relationships
     Can use SE blocks for channel attention
-    May need some form of channel mixing?
     '''
 
     def __init__(self, c_in, c_out, use_se=True, r=8, double=False):
         super().__init__()
-
 
         # Define convolutional layer
         if double:
@@ -264,19 +262,17 @@ class LightningGFSUnbiaser(pl.LightningModule):
 
     def forward(self, x):
         return self.model(x)
+    
 
-    # def evaluate(self, batch, stage=None):
-    #     x, y = batch
-    #     logits = self.forward(x)
+    def evaluate(self, batch, stage=None):
+        x, y = batch
+        pred = self.forward(x)
 
-    #     loss = F.binary_cross_entropy_with_logits(logits, y)
-    #     acc = accuracy(torch.sigmoid(logits), y.long())
-    #     f1 = f1_score(torch.sigmoid(logits), y.long())
+        loss = self.loss_fxn.forward(pred, y)
 
-    #     if stage is not None:
-    #         self.log(f"{stage}_loss", loss, prog_bar=True)
-    #         self.log(f"{stage}_acc", acc, prog_bar=True)
-    #         self.log(f"{stage}_f1", f1, prog_bar=True)
+        if stage is not None:
+            self.log(f"{stage}_loss", loss, prog_bar=True)
+
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -285,16 +281,28 @@ class LightningGFSUnbiaser(pl.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
-    # def validation_step(self, batch, batch_idx):
-    #     self.evaluate(batch, "val")
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch, "val")
 
-    # def test_step(self, batch, batch_idx):
-    #     self.evaluate(batch, "test")
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch, "test")
 
-    # def predict_step(self, batch, batch_idx):
-    #     x, y = batch
-    #     logits = self.forward(x)
-    #     return logits
+    def predict_step(self, batch, batch_idx):
+        x, y = batch
+        pred = self.forward(x)
+        return pred
 
-    # def configure_optimizers(self):
-    #     return torch.optim.Adam(self.parameters(), lr=1e-3)
+    def configure_optimizers(self, config=None):
+        lr = 1e-3
+        algo = "AdamW"
+        decay = 0.01
+        if config is not None:
+            lr = config["lr"]
+            algo = config["optimizer"]
+            decay = config["weight_decay"]
+
+        if algo == "AdamW":
+            return torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=decay)
+        else:
+            return torch.optim.Adam(self.parameters(), lr=lr)
+
