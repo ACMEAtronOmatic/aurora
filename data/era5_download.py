@@ -70,9 +70,9 @@ def download_era5(configs):
     surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface_raw.nc"
     atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric_raw.nc"
 
-    processed_static_path = static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}.nc"
-    processed_surface_path = surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface.nc"
-    processed_atmos_path = atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric.nc"
+    processed_static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}.nc"
+    processed_surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface.nc"
+    processed_atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric.nc"
 
     # Check if all necessary data already exists
     if os.path.exists(processed_static_path) and \

@@ -68,3 +68,5 @@ inference:
   use_lora: false
   steps: 28
   variable: "msl"
+  save_path: "gfs_converter_ckpt"
+  logs_path: "gfs_converter_logs"

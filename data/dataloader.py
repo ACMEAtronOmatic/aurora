@@ -92,6 +92,8 @@ class GFSDataset(torch.utils.data.Dataset):
 
         combined_tensor = torch.cat((gfs_tensor, self.era_tensor), dim=0)
 
+        self.shape = combined_tensor.shape
+
         return combined_tensor
 
 
@@ -136,16 +138,24 @@ class GFSDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
-        dataset = GFSDataset(gfs_path=self.gfs_path,
+        self.gfs_dataset = GFSDataset(gfs_path=self.gfs_path,
                               era_statics_path=self.static_path, configs=self.configs)
-        training_size = math.floor(len(dataset) * self.train_size)
-        val_size = len(dataset) - training_size
+        training_size = math.floor(len(self.gfs_dataset) * self.train_size)
+        val_size = len(self.gfs_dataset) - training_size
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        generator = torch.Generator(device=device).manual_seed(42)
+        # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # generator = torch.Generator(device=device).manual_seed(42)
+
+        # train_dataset, val_dataset = torch.utils.data.random_split(
+        #     dataset, [training_size, val_size], generator=generator
+        # )
+
         train_dataset, val_dataset = torch.utils.data.random_split(
-            dataset, [training_size, val_size], generator=generator
+            self.gfs_dataset, [training_size, val_size]
         )
+
+        self.gfs_dataset.__getitem__(0) # saves shape
+        self.shape = self.gfs_dataset.shape
 
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
