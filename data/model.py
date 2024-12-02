@@ -22,6 +22,7 @@ import pytorch_lightning as pl
 from pytorch_msssim import MS_SSIM
 
 from data.dataloader import CHANNEL_MAP, LEVEL_MAP
+from data.era5_download import download_era5
 
 ERA5_GLOBAL_RANGES = {
     # Surface Variables

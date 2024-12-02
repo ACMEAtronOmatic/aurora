@@ -105,7 +105,7 @@ def main():
             download_gfs(config['data']['gfs'])
 
             # Process GFS data
-            # NOTE: isobaricInhPa was renamed to pressure
+            # NOTE: isobaricInhPa was renamed to level
             gfs_path = process_gfs(config['data']['gfs'])
         else:
             print("Processed GFS Data for this time range found")
@@ -123,16 +123,13 @@ def main():
         
         # Test torch dataset
         print("Testing torch dataset...")
-        torch_ds = GFSDataset(gfs_path=gfs_path, era_statics_path=static_path, configs=config)
+        torch_ds = GFSDataset(config=config)
 
-        torch_tensor = torch_ds.__getitem__(0)
-
-        print("Tensor Shape")
-        print(torch_tensor.shape)
+        input, truth = torch_ds.__getitem__(0)
 
         # [channel, level, lat, lon]
-        for var in CHANNEL_MAP.keys():
-            visualize_tensor(torch_tensor, output_path=archDir, variable=var, format="mp4", fps=4)
+        # for var in CHANNEL_MAP.keys():
+        #     visualize_tensor(torch_tensor, output_path=archDir, variable=var, format="mp4", fps=4)
 
         exit(0)
 

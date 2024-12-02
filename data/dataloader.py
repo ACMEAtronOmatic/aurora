@@ -49,28 +49,47 @@ LEVEL_MAP = {
 
 
 class GFSDataset(torch.utils.data.Dataset):
-    def __init__(self, gfs_path, era_statics_path, configs):
+    def __init__(self, config):
         super().__init__()
-        self.gfs_path = gfs_path
-        self.era_statics_path = era_statics_path
+        start = config['data']['gfs']['time']['start']
+        end = config['data']['gfs']['time']['end']
+        arch_dir = config['data']['gfs']['archive']
+
+        era5_download_path = config['data']['era5']['download_path']
+        static_tag = config['data']['era5']['static_tag']
+        year = config['data']['era5']['year']
+        month = config['data']['era5']['month']
+        days = config['data']['era5']['days']
+
+        self.gfs_path = os.path.join(arch_dir, f"gfs_{start}_{end}.nc")
+
+        self.static_path = f"{era5_download_path}/static_{static_tag}.nc"
+        self.surface_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_surface.nc"
+        self.atmos_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_atmospheric.nc"
 
         # Load the datasets
         self.gfs = xr.open_dataset(self.gfs_path, engine="netcdf4")
         self.times = self.gfs.time.values
         self.levels = self.gfs.level.values
 
-        self.era_static = xr.open_dataset(self.era_statics_path, engine="netcdf4").isel(time=0)
-        print("ERA Statics Variables: ", self.era_static.data_vars.keys())
+        era_static = xr.open_dataset(self.static_path, engine="netcdf4").isel(time=0) # load into tensor
+        self.era_surface = xr.open_dataset(self.surface_path, engine="netcdf4")
+        self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")
 
-        self.era_tensor = torch.from_numpy(self.era_static.to_array().values).to(dtype=torch.float32)
+        self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
         # Add a dimension for levels
         # Dimensions: ('variable', 'time', 'level', 'lat', 'lon')
-        self.era_tensor = self.era_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
+        self.era_static_tensor = self.era_static_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
 
         # Print some info about the datasets
         print("GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
-        print("GFS Levels: ", self.gfs.level.values)
-        print("ERA Statics Shape: ", {dim: self.era_static.sizes[dim] for dim in self.era_static.dims})
+        print("GFS Variables: ", self.gfs.data_vars.keys())
+        print("ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
+        print("ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
+        print("ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
+        print("ERA Statics Variables: ", era_static.data_vars.keys())
+        print("ERA Surface Variables: ", self.era_surface.data_vars.keys())
+        print("ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
 
 
     def __len__(self):
@@ -78,23 +97,47 @@ class GFSDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         # Return data at all levels and all variables
+        # Assume that time steps across ERA and GFS are aligned
 
         gfs_slice = self.gfs.isel(time=index)
-
-        # Print GFS Variables
-        print("GFS Variables: ", gfs_slice.data_vars.keys())
 
         # Dimensions: [channel, level, lat, lon]
         gfs_tensor = torch.from_numpy(gfs_slice.to_array().values).to(dtype=torch.float32)
 
-        print("GFS Tensor Shape: ", gfs_tensor.shape)
-        print("ERA Statics Tensor Shape: ", self.era_tensor.shape)
+        # print("GFS Tensor Shape: ", gfs_tensor.shape)
+        # print("ERA Statics Tensor Shape: ", self.era_static_tensor.shape)
 
-        combined_tensor = torch.cat((gfs_tensor, self.era_tensor), dim=0)
+        input_tensor = torch.cat((gfs_tensor, self.era_static_tensor), dim=0)
 
-        self.shape = combined_tensor.shape
+        print("Input Tensor Shape: ", input_tensor.shape)
 
-        return combined_tensor
+        self.input_shape = input_tensor.shape
+
+        era_surface_slice = self.era_surface.isel(time=index)
+        era_atmos_slice = self.era_atmos.isel(time=index)
+
+        # Surface: [channel, lat, lon]
+        era_surface_tensor = torch.from_numpy(era_surface_slice.to_array().values).to(dtype=torch.float32)
+
+        # Atmos: [channel, level, lat, lon]
+        era_atmos_tensor = torch.from_numpy(era_atmos_slice.to_array().values).to(dtype=torch.float32)
+
+        # print("ERA Surface Tensor Shape: ", era_surface_tensor.shape)
+        # print("ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
+
+        # Final truth tensor should have shape: [channel, level, lat, lon]
+        # [9, 13, 721, 1440]
+
+        # Repeat surface tensor for each level
+        era_surface_tensor = era_surface_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
+
+        truth_tensor = torch.cat((era_surface_tensor, era_atmos_tensor), dim=0)
+
+        self.output_shape = truth_tensor.shape
+
+        print("Truth Tensor Shape: ", truth_tensor.shape)
+
+        return input_tensor, truth_tensor
 
 
 class GFSDataModule(pl.LightningDataModule):
@@ -143,12 +186,6 @@ class GFSDataModule(pl.LightningDataModule):
         training_size = math.floor(len(self.gfs_dataset) * self.train_size)
         val_size = len(self.gfs_dataset) - training_size
 
-        # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        # generator = torch.Generator(device=device).manual_seed(42)
-
-        # train_dataset, val_dataset = torch.utils.data.random_split(
-        #     dataset, [training_size, val_size], generator=generator
-        # )
 
         train_dataset, val_dataset = torch.utils.data.random_split(
             self.gfs_dataset, [training_size, val_size]

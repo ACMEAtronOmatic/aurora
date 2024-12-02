@@ -151,7 +151,7 @@ def download_era5(configs):
 
     atmos_ds = xr.open_dataset(atmos_path, engine="netcdf4")
     print("ERA Atmos Shape: ", {dim: atmos_ds.sizes[dim] for dim in atmos_ds.dims})
-    atmos_ds = atmos_ds.rename({"valid_time": "time"})
+    atmos_ds = atmos_ds.rename({"valid_time": "time", "pressure_level": "level"})
     atmos_ds.to_netcdf(processed_atmos_path)
 
     return processed_static_path, processed_surface_path, processed_atmos_path
@@ -195,8 +195,8 @@ def make_batch(static_path, surface_path, atmos_path, step):
             # Converting to `datetime64[s]` ensures that the output of `tolist()` gives
             # `datetime.datetime`s. Note that this needs to be a tuple of length one:
             # one value for every batch element.
-            time=(surface_ds.valid_time.values.astype("datetime64[s]").tolist()[step],),
-            atmos_levels=tuple(int(level) for level in atmos_ds.pressure_level.values),
+            time=(surface_ds.time.values.astype("datetime64[s]").tolist()[step],),
+            atmos_levels=tuple(int(level) for level in atmos_ds.level.values),
         ),
     )
 
