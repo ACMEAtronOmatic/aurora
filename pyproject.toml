@@ -68,7 +68,8 @@ myradar = [
     "torcheval", 
     "pytorch-msssim", 
     "rich",
-    "tensorboardX"
+    "tensorboardX", 
+    "torchinfo",
 ]
 
 [project.urls]

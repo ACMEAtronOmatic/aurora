@@ -82,14 +82,14 @@ class GFSDataset(torch.utils.data.Dataset):
         self.era_static_tensor = self.era_static_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
 
         # Print some info about the datasets
-        print("GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
-        print("GFS Variables: ", self.gfs.data_vars.keys())
-        print("ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
-        print("ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
-        print("ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
-        print("ERA Statics Variables: ", era_static.data_vars.keys())
-        print("ERA Surface Variables: ", self.era_surface.data_vars.keys())
-        print("ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
+        # print("GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
+        # print("GFS Variables: ", self.gfs.data_vars.keys())
+        # print("ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
+        # print("ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
+        # print("ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
+        # print("ERA Statics Variables: ", era_static.data_vars.keys())
+        # print("ERA Surface Variables: ", self.era_surface.data_vars.keys())
+        # print("ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
 
 
     def __len__(self):
@@ -109,7 +109,10 @@ class GFSDataset(torch.utils.data.Dataset):
 
         input_tensor = torch.cat((gfs_tensor, self.era_static_tensor), dim=0)
 
-        print("Input Tensor Shape: ", input_tensor.shape)
+        # TODO: fix this in a better way
+        input_tensor = input_tensor.permute(1, 0, 2, 3)
+
+        # print("Input Tensor Shape: ", input_tensor.shape)
 
         self.input_shape = input_tensor.shape
 
@@ -133,9 +136,12 @@ class GFSDataset(torch.utils.data.Dataset):
 
         truth_tensor = torch.cat((era_surface_tensor, era_atmos_tensor), dim=0)
 
+        # TODO: fix with something better
+        truth_tensor = truth_tensor.permute(1, 0, 2, 3)
+
         self.output_shape = truth_tensor.shape
 
-        print("Truth Tensor Shape: ", truth_tensor.shape)
+        # print("Truth Tensor Shape: ", truth_tensor.shape)
 
         return input_tensor, truth_tensor
 
@@ -181,21 +187,23 @@ class GFSDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
-        self.gfs_dataset = GFSDataset(gfs_path=self.gfs_path,
-                              era_statics_path=self.static_path, configs=self.configs)
-        training_size = math.floor(len(self.gfs_dataset) * self.train_size)
-        val_size = len(self.gfs_dataset) - training_size
+        gfs_dataset = GFSDataset(config=self.configs)
+        training_size = math.floor(len(gfs_dataset) * self.train_size)
+        val_size = len(gfs_dataset) - training_size
 
 
         train_dataset, val_dataset = torch.utils.data.random_split(
-            self.gfs_dataset, [training_size, val_size]
+            gfs_dataset, [training_size, val_size]
         )
 
-        self.gfs_dataset.__getitem__(0) # saves shape
-        self.shape = self.gfs_dataset.shape
+        gfs_dataset.__getitem__(0) # saves shape
+        self.input_shape = gfs_dataset.input_shape
+        self.output_shape = gfs_dataset.output_shape
 
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
+
+        del gfs_dataset
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(

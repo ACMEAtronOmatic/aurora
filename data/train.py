@@ -11,6 +11,7 @@
 import os
 import yaml
 from argparse import ArgumentParser
+import torch
 
 from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
@@ -21,6 +22,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, RichProgressBar
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
+
+torch.set_float32_matmul_precision("medium")
 
 
 def download_process_data(config):
@@ -80,22 +83,31 @@ def main():
     # Download GFS and ERA5 data
     download_process_data(config)
 
+    batch_size = 1
+
     # Instantiate dataloader
-    dm = GFSDataModule(config)
+    dm = GFSDataModule(config, batch_size=batch_size)
     dm.prepare_data()
     dm.setup()
 
     # How many channels are being input and output?
-    input_channels = dm.shape[0]
+    input_channels = dm.input_shape[1]
 
     # Need 9 output channels: 2t, 10u, 10v, msl, t, u, v, q, z
     # Output should be for every level, although surface data will only use the first level (1000)
-    output_channels = 9
+    output_channels = dm.output_shape[1]
+
+    levels = dm.output_shape[0]
+    h = dm.output_shape[2]
+    w = dm.output_shape[3]
 
     print("Input Channels: ", input_channels, "Output Channels: ", output_channels)
+    print("Input Shape: ", dm.input_shape, "Output Shape: ", dm.output_shape)
+    print("Levels: ", levels)
 
     # # Instantiate Lightning module
-    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels)
+    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, samples=batch_size, 
+                                 levels=levels, height=h, width=w, double=False)
 
     # Instantiate Callbacks & Loggers
     early_stop_callback = EarlyStopping(
@@ -118,10 +130,15 @@ def main():
     trainer = pl.Trainer(
         accelerator="gpu",
         devices=1,
-        max_epochs=15,
+        max_epochs=2,
         callbacks=[early_stop_callback, checkpoint_callback, progress_callback],
         logger=tensorboard_logger,
     )
+
+    print("Starting Training...")
+    print(torch.cuda.memory_summary())
+
+    trainer.fit(model=model, datamodule=dm)
 
 
 if __name__ == '__main__':

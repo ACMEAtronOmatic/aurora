@@ -32,3 +32,6 @@ htmlcov
 .envrc
 downloads/*
 !downloads/.gitkeep
+.vscode
+gfs_converter_logs
+gfs_converter_ckpt
