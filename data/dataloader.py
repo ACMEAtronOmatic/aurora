@@ -77,9 +77,7 @@ class GFSDataset(torch.utils.data.Dataset):
         self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")
 
         self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
-        # Add a dimension for levels
-        # Dimensions: ('variable', 'time', 'level', 'lat', 'lon')
-        self.era_static_tensor = self.era_static_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
+
 
         # Print some info about the datasets
         # print("GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
@@ -104,15 +102,20 @@ class GFSDataset(torch.utils.data.Dataset):
         # Dimensions: [channel, level, lat, lon]
         gfs_tensor = torch.from_numpy(gfs_slice.to_array().values).to(dtype=torch.float32)
 
+        # Need to combine channel and level dimensions: [channel*level, lat, lon]
+        gfs_tensor = gfs_tensor.view(gfs_tensor.shape[0]*gfs_tensor.shape[1],
+                                     gfs_tensor.shape[2], gfs_tensor.shape[3])
+
         # print("GFS Tensor Shape: ", gfs_tensor.shape)
         # print("ERA Statics Tensor Shape: ", self.era_static_tensor.shape)
 
         input_tensor = torch.cat((gfs_tensor, self.era_static_tensor), dim=0)
 
-        # TODO: fix this in a better way
-        input_tensor = input_tensor.permute(1, 0, 2, 3)
+        # Need to combine channel and level dimensions: [channel*level, lat, lon]
+        # input_tensor = input_tensor.view(input_tensor.shape[0]*input_tensor.shape[1],
+        #                                   input_tensor.shape[2], input_tensor.shape[3])
 
-        # print("Input Tensor Shape: ", input_tensor.shape)
+        print("Input Tensor Shape: ", input_tensor.shape)
 
         self.input_shape = input_tensor.shape
 
@@ -125,23 +128,29 @@ class GFSDataset(torch.utils.data.Dataset):
         # Atmos: [channel, level, lat, lon]
         era_atmos_tensor = torch.from_numpy(era_atmos_slice.to_array().values).to(dtype=torch.float32)
 
-        # print("ERA Surface Tensor Shape: ", era_surface_tensor.shape)
-        # print("ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
+        # New Atmos: [channel*level, lat, lon]
+        era_atmos_tensor = era_atmos_tensor.view(era_atmos_tensor.shape[0] * era_atmos_tensor.shape[1],
+                                                  era_atmos_tensor.shape[2], era_atmos_tensor.shape[3])
+
+        # Static: [channel, lat, lon]
+        print("ERA Static Tensor Shape: ", self.era_static_tensor.shape)
+        print("ERA Surface Tensor Shape: ", era_surface_tensor.shape)
+        print("ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
 
         # Final truth tensor should have shape: [channel, level, lat, lon]
         # [9, 13, 721, 1440]
+        # If combining channel*level:
+        # [117, 721, 1440]
 
         # Repeat surface tensor for each level
-        era_surface_tensor = era_surface_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
-
+        # NOTE: not needed if combining channel and level dimensions
+        # era_surface_tensor = era_surface_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
         truth_tensor = torch.cat((era_surface_tensor, era_atmos_tensor), dim=0)
 
-        # TODO: fix with something better
-        truth_tensor = truth_tensor.permute(1, 0, 2, 3)
 
         self.output_shape = truth_tensor.shape
 
-        # print("Truth Tensor Shape: ", truth_tensor.shape)
+        print("Truth Tensor Shape: ", truth_tensor.shape)
 
         return input_tensor, truth_tensor
 

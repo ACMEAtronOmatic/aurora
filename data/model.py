@@ -122,13 +122,17 @@ class SEAttnBlock(nn.Module):
 
 
     def forward(self, x):
-        batches, channels, _, _ = x.size()
+        print("SE Block Input: ", x.shape)
+
+        # TODO: why is there sometimes a batch dimension?
+
+        channels, _, _ = x.size()
 
         # GAP, compresses to a 2D tensor bxc (H & W are 1)
-        y = self.pool(x).view(batches, channels)
+        y = self.pool(x).view(channels)
 
         # Apply Excitement Layer, reshape to tensor bxcx1x1
-        y = self.fc(y).view(batches, channels, 1, 1)
+        y = self.fc(y).view(channels, 1, 1)
 
         # expand_as will match y to the shape of x
         return x * y.expand_as(x)
@@ -140,7 +144,7 @@ class Conv2DBlock(nn.Module):
     Can use SE blocks for channel attention
     '''
 
-    def __init__(self, c_in, c_out, samples, levels, height, width, use_se=True, r=8, double=False):
+    def __init__(self, c_in, c_out, samples, height, width, use_se=True, r=8, double=False):
         super().__init__()
 
         # Define convolutional layer
@@ -149,16 +153,16 @@ class Conv2DBlock(nn.Module):
         if double:
             self.conv = nn.Sequential(
                 nn.Conv2d(c_in, c_out, kernel_size=3, padding=1, stride=1),
-                nn.LayerNorm([levels, c_out, height, width]),
+                nn.LayerNorm([c_out, height, width]),
                 nn.GELU(),
                 nn.Conv2d(c_out, c_out, kernel_size=3, padding=1, stride=1),
-                nn.LayerNorm([levels, c_out, height, width]),
+                nn.LayerNorm([c_out, height, width]),
                 nn.GELU()
             )
         else:
             self.conv = nn.Sequential(
                 nn.Conv2d(c_in, c_out, kernel_size=3, padding=1, stride=1),
-                nn.LayerNorm([levels, c_out, height, width]),
+                nn.LayerNorm([c_out, height, width]),
                 nn.GELU()
             )
 
@@ -177,7 +181,7 @@ class Encoder(nn.Module):
     Conv blocks with SE and MaxPooling for downsampling
     '''
 
-    def __init__(self, c_in, samples, levels, height, width,
+    def __init__(self, c_in, samples, height, width,
                  use_se=True, r=8, feature_dims=[64, 128, 256, 512], double=False):
         super().__init__()
 
@@ -190,7 +194,7 @@ class Encoder(nn.Module):
             # Decrease in spatial resolution, increase in channels
             self.downsampling.append(
                 Conv2DBlock(c_in=c, c_out=f, samples=samples,
-                             levels=levels, height=height//(2**i), width=width//(2**i),
+                             height=height//(2**i), width=width//(2**i),
                               use_se=use_se, r=r, double=double)
             )
 
@@ -225,7 +229,7 @@ class Decoder(nn.Module):
 
     '''
 
-    def __init__(self, samples, levels, height, width,
+    def __init__(self, samples, height, width,
                  feature_dims=[64, 128, 256, 512],
                   use_se=True, r=8, double=False, skip_method="add"):
         super().__init__()
@@ -242,8 +246,13 @@ class Decoder(nn.Module):
 
         # Assumes that feature_dims will be in the same order as Encoder
         # Starts with input from bottleneck, which is 2*largest feature dims
-        for i, f in enumerate(reversed(feature_dims)):
+        for i, f in enumerate(feature_dims[::-1]):
             layer = len(feature_dims) - i - 1
+
+            if i == len(feature_dims) - 1:
+                f_out = f # last layer
+            else:
+                f_out = f//2
 
             # Increase in spatial resolution
             self.upsampling.append(
@@ -254,17 +263,22 @@ class Decoder(nn.Module):
 
             # Refine upsampling by decreasing channels
             self.dec.append(
-                Conv2DBlock(c_in=f, c_out=f//2, 
-                            samples=samples, levels=levels, height=height//(2**layer),
+                Conv2DBlock(c_in=f, c_out=f_out, 
+                            samples=samples, height=height//(2**layer),
                               width=width//(2**layer), use_se=use_se, r=r, double=double)
             )
 
-            print(f"Conv2D Block: {f} -> {f//2}, H={height//(2**layer)}, W={width//(2**layer)}")
+            print(f"Conv2D Block: {f} -> {f_out}, H={height//(2**layer)}, W={width//(2**layer)}")
 
 
     def forward(self, x, skip_connections):
         print(f"Decoder Input: {x.shape}")
+
+        skip_connections = skip_connections[::-1]
         for i, (upsampling, dec) in enumerate(zip(self.upsampling, self.dec)):
+            print(f"\nLoop {i}: ")
+            print(f"Input: {x.shape}")
+            
             x = upsampling(x) # transposed conv
             print(f"Upsampling: {x.shape}")
             print(f"Skip Connection: {skip_connections[i].shape}")
@@ -274,19 +288,34 @@ class Decoder(nn.Module):
                 # Typically only if f//2 does not exactly match the next feature dim
                 # Which can happen in the very last layer (e.g. 720 vs 721)
                 if x.shape != skip_connections[i].shape:
-                    skip_connections[i] = F.interpolate(
-                        skip_connections[i], 
-                        size=x.shape[2:],  # Match spatial dimensions of upsampled input
-                        mode='bilinear', 
-                        align_corners=False
-                    )
+                    print(f"Shape Mismatch: X = {x.shape} | Skip = {skip_connections[i].shape}")
+
+                    # Check if 3D or 4D tensor
+                    if len(x.shape) == 3:
+                        # Need to add an extra dimension to use this function
+                        # Requires min. 4D
+                        x = F.interpolate(
+                            x.unsqueeze(0),
+                            size=skip_connections[i].shape[1:],  # Match spatial dimensions of the skip connection
+                            mode='bilinear', 
+                            align_corners=False
+                        ).squeeze(0)
+                    elif len(x.shape) == 4:
+                        x = F.interpolate(
+                            x,
+                            size=skip_connections[i].shape[1:],  # Match spatial dimensions of the skip connection
+                            mode='bilinear', 
+                            align_corners=False
+                        )
 
                 x = x + skip_connections[i]
             elif self.skip_method == "cat":
-                # NOTE: will increase the number of channels
+                # NOTE: will increase the number of channels, 
+                # which needs to get reflected in the decoder layer channels
                 x = torch.cat((x, skip_connections[i]), dim=1)
 
-            print(f"Concatenated: {x.shape}")
+            print(f"Skip Added: {x.shape}")
+
             x = dec(x) # refinement'
             print(f"Refined: {x.shape}")
 
@@ -295,36 +324,33 @@ class Decoder(nn.Module):
 
 class GFSUnbiaser(nn.Module):
     def __init__(self, in_channels, out_channels, 
-                 samples, levels, height, width,
+                 samples, height, width,
                   feature_dims=[64, 128, 256, 512],
                    use_se=True, r=8, double=False):
         super().__init__()
 
         print("Instantiating Encoder...")
-        self.encoder = Encoder(c_in=in_channels, samples=samples,
-                                levels=levels, height=height, width=width,
+        self.encoder = Encoder(c_in=in_channels, samples=samples, height=height, width=width,
                                   use_se=use_se, r=r, feature_dims=feature_dims, double=double)
         
-        print("Encoder Summary:")
-        summary(self.encoder, (levels, in_channels, height, width))
+        # print("Encoder Summary:")
+        # summary(self.encoder, (levels, in_channels, height, width))
         
         print("Instantiating Decoder...")
         self.decoder = Decoder(feature_dims=feature_dims,
-                                samples=samples, levels=levels,
-                                  height=height, width=width, r=r,
+                                samples=samples, height=height, width=width, r=r,
                                     use_se=use_se, double=double, skip_method="add")
         
-        print("Decoder Summary:")
-        # NOTE: all skip connections are passed to decoder. Need tensor for every layer
-        # Should be ordered from least to most channels
-        bottleneck_input = torch.randn(levels, feature_dims[-1], height//2**len(feature_dims), width//2**len(feature_dims))
-        test_skip_connections = [torch.randn(levels, feature_dims[0], height//2**0, width//2**0), 
-                                  torch.randn(levels, feature_dims[1], height//2**1, width//2**1),
-                                  torch.randn(levels, feature_dims[2], height//2**2, width//2**2),
-                                  torch.randn(levels, feature_dims[3], height//2**3, width//2**3)]
+        # print("Decoder Summary:")
+        # # NOTE: all skip connections are passed to decoder. Need tensor for every layer
+        # # Should be ordered from least to most channels
+        # bottleneck_input = torch.randn(levels, feature_dims[-1], height//2**len(feature_dims), width//2**len(feature_dims))
+        # test_skip_connections = [torch.randn(levels, feature_dims[0], height//2**0, width//2**0), 
+        #                           torch.randn(levels, feature_dims[1], height//2**1, width//2**1),
+        #                           torch.randn(levels, feature_dims[2], height//2**2, width//2**2),
+        #                           torch.randn(levels, feature_dims[3], height//2**3, width//2**3)]
         
-        summary(self.decoder, input_data=[bottleneck_input, test_skip_connections[::-1]])
-        # summary(self.decoder, (feature_dims[0], height//2**len(feature_dims), width//2**len(feature_dims)))
+        # summary(self.decoder, input_data=[bottleneck_input, test_skip_connections[::-1]])
    
         self.final_conv = nn.Conv2d(feature_dims[0], out_channels, kernel_size=1)
 
@@ -332,7 +358,7 @@ class GFSUnbiaser(nn.Module):
 
     def forward(self, x):
         x, skip_connections = self.encoder(x)
-        x = self.decoder(x, reversed(skip_connections))
+        x = self.decoder(x, skip_connections)
         x = self.final_conv(x)
 
         return x
@@ -340,16 +366,18 @@ class GFSUnbiaser(nn.Module):
 
 class LightningGFSUnbiaser(pl.LightningModule):
     def __init__(self, in_channels, out_channels, 
-                 samples, levels, height, width,
+                 samples, height, width,
                   feature_dims=[64, 128, 256, 512],
                    use_se=True, r=8, double=False):
         super().__init__()
 
         self.model = GFSUnbiaser(in_channels, out_channels, 
                                  feature_dims=feature_dims,
-                                 samples=samples, levels=levels,
-                                   height=height, width=width,
+                                 samples=samples, height=height, width=width,
                                    use_se=use_se, r=r, double=double)
+        
+        print("Model Summary:")
+        summary(self.model, (in_channels, height, width))
         
         self.loss_fxn = Loss(remap=True, exponent=5.0, power=3.0,
                               constant=1.0, channels=out_channels)

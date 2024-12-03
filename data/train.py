@@ -91,23 +91,22 @@ def main():
     dm.setup()
 
     # How many channels are being input and output?
-    input_channels = dm.input_shape[1]
+    input_channels = dm.input_shape[0]
 
     # Need 9 output channels: 2t, 10u, 10v, msl, t, u, v, q, z
     # Output should be for every level, although surface data will only use the first level (1000)
-    output_channels = dm.output_shape[1]
+    output_channels = dm.output_shape[0]
 
-    levels = dm.output_shape[0]
-    h = dm.output_shape[2]
-    w = dm.output_shape[3]
+    h = dm.output_shape[1]
+    w = dm.output_shape[2]
 
     print("Input Channels: ", input_channels, "Output Channels: ", output_channels)
     print("Input Shape: ", dm.input_shape, "Output Shape: ", dm.output_shape)
-    print("Levels: ", levels)
 
     # # Instantiate Lightning module
-    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, samples=batch_size, 
-                                 levels=levels, height=h, width=w, double=False)
+    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels,
+                                  samples=batch_size, height=h, width=w, double=False,
+                                    feature_dims=[32, 64, 128], use_se=True, r=8)
 
     # Instantiate Callbacks & Loggers
     early_stop_callback = EarlyStopping(
@@ -136,7 +135,6 @@ def main():
     )
 
     print("Starting Training...")
-    print(torch.cuda.memory_summary())
 
     trainer.fit(model=model, datamodule=dm)
 
