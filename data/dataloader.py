@@ -7,8 +7,9 @@ import xarray as xr
 import torch
 from PIL import Image
 
-from .gfs_download import download_gfs, process_gfs
-from .era5_download import download_static_era5
+from data.utils import print_debug, check_gpu_memory
+from data.gfs_download import download_gfs, process_gfs
+from data.era5_download import download_static_era5
 
 # Channel Map after concatenating ERA5 Static Variables
 CHANNEL_MAP = {
@@ -48,9 +49,13 @@ LEVEL_MAP = {
 }
 
 
+
 class GFSDataset(torch.utils.data.Dataset):
-    def __init__(self, config):
+    def __init__(self, config, debug=False):
         super().__init__()
+
+        self.debug = debug
+
         start = config['data']['gfs']['time']['start']
         end = config['data']['gfs']['time']['end']
         arch_dir = config['data']['gfs']['archive']
@@ -73,6 +78,8 @@ class GFSDataset(torch.utils.data.Dataset):
         self.levels = self.gfs.level.values
 
         era_static = xr.open_dataset(self.static_path, engine="netcdf4").isel(time=0) # load into tensor
+        self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
+
         self.era_surface = xr.open_dataset(self.surface_path, engine="netcdf4")
         self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")
 
@@ -82,22 +89,19 @@ class GFSDataset(torch.utils.data.Dataset):
         self.atmos_channels = list(self.era_atmos.data_vars.keys())
         self.surface_channels = list(self.era_surface.data_vars.keys())
 
-        print("ERA Surface Channels: ", self.surface_channels)
-        print("ERA Atmos Channels: ", self.atmos_channels)
-        print("ERA Atmos Levels: ", self.atmos_levels)
-
-        self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
-
+        print_debug(self.debug, "ERA Surface Channels: ", self.surface_channels)
+        print_debug(self.debug, "ERA Atmos Channels: ", self.atmos_channels)
+        print_debug(self.debug, "ERA Atmos Levels: ", self.atmos_levels)
 
         # Print some info about the datasets
-        # print("GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
-        # print("GFS Variables: ", self.gfs.data_vars.keys())
-        # print("ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
-        # print("ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
-        # print("ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
-        # print("ERA Statics Variables: ", era_static.data_vars.keys())
-        # print("ERA Surface Variables: ", self.era_surface.data_vars.keys())
-        # print("ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
+        print_debug(self.debug, "GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
+        print_debug(self.debug, "GFS Variables: ", self.gfs.data_vars.keys())
+        print_debug(self.debug, "ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
+        print_debug(self.debug, "ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
+        print_debug(self.debug, "ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
+        print_debug(self.debug, "ERA Statics Variables: ", era_static.data_vars.keys())
+        print_debug(self.debug, "ERA Surface Variables: ", self.era_surface.data_vars.keys())
+        print_debug(self.debug, "ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
 
     def idx_to_variable(self, tensor_idx):
         # Example: idx 9, channel 2, level 1 of 3 channels, 4 levels
@@ -126,8 +130,8 @@ class GFSDataset(torch.utils.data.Dataset):
         gfs_tensor = gfs_tensor.view(gfs_tensor.shape[0]*gfs_tensor.shape[1],
                                      gfs_tensor.shape[2], gfs_tensor.shape[3])
 
-        # print("GFS Tensor Shape: ", gfs_tensor.shape)
-        # print("ERA Statics Tensor Shape: ", self.era_static_tensor.shape)
+        print_debug(self.debug, "GFS Tensor Shape: ", gfs_tensor.shape)
+        print_debug(self.debug, "ERA Statics Tensor Shape: ", self.era_static_tensor.shape)
 
         input_tensor = torch.cat((gfs_tensor, self.era_static_tensor), dim=0)
 
@@ -135,7 +139,7 @@ class GFSDataset(torch.utils.data.Dataset):
         # input_tensor = input_tensor.view(input_tensor.shape[0]*input_tensor.shape[1],
         #                                   input_tensor.shape[2], input_tensor.shape[3])
 
-        # print("Input Tensor Shape: ", input_tensor.shape)
+        print_debug(self.debug, "Input Tensor Shape: ", input_tensor.shape)
 
         self.input_shape = input_tensor.shape
 
@@ -155,9 +159,9 @@ class GFSDataset(torch.utils.data.Dataset):
                                                   era_atmos_tensor.shape[2], era_atmos_tensor.shape[3])
 
         # Static: [channel, lat, lon]
-        # print("ERA Static Tensor Shape: ", self.era_static_tensor.shape)
-        # print("ERA Surface Tensor Shape: ", era_surface_tensor.shape)
-        # print("ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
+        print_debug(self.debug, "ERA Static Tensor Shape: ", self.era_static_tensor.shape)
+        print_debug(self.debug, "ERA Surface Tensor Shape: ", era_surface_tensor.shape)
+        print_debug(self.debug, "ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
 
         # Repeat surface tensor for each level
         # NOTE: not needed if combining channel and level dimensions
@@ -165,7 +169,7 @@ class GFSDataset(torch.utils.data.Dataset):
 
         self.output_shape = truth_tensor.shape
 
-        # print("Truth Tensor Shape: ", truth_tensor.shape)
+        print_debug(self.debug, "Truth Tensor Shape: ", truth_tensor.shape)
 
         return input_tensor, truth_tensor
 
@@ -175,11 +179,12 @@ class GFSDataModule(pl.LightningDataModule):
     Should the data module download ERA5 data as well?
     '''
 
-    def __init__(self, configs, train_size=0.9, batch_size=4):
+    def __init__(self, configs, train_size=0.9, batch_size=4, debug=False):
         super().__init__()
         self.configs = configs
         self.train_size = train_size
         self.batch_size = batch_size
+        self.debug = debug
 
         start = self.configs['data']['gfs']['time']['start']
         end = self.configs['data']['gfs']['time']['end']
@@ -194,24 +199,26 @@ class GFSDataModule(pl.LightningDataModule):
     def prepare_data(self):
         if not os.path.exists(self.gfs_path):
             # Download GFS data if it is not already downloaded
-            print("Downloading GFS Data: ", self.gfs_path)
+            print_debug(self.debug, "Downloading GFS Data: ", self.gfs_path)
             download_gfs(self.configs['data']['gfs'])
 
             # Process GFS data
             # NOTE: isobaricInhPa was renamed to pressure
             process_gfs(self.configs['data']['gfs'])
         else:
-            print("Processed GFS Data for this time range found")
+            print_debug(self.debug, "Processed GFS Data for this time range found")
 
 
         if not os.path.exists(self.static_path):
             # Download ERA5 static data if it is not already downloaded
-            print("Downloading ERA5 Static Data: ", self.static_path)
+            print_debug(self.debug, "Downloading ERA5 Static Data: ", self.static_path)
             download_static_era5(self.configs['data']['gfs'])
+
+        print(f"Memory after Preparing Data: {check_gpu_memory():.2f} GB")
 
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
-        gfs_dataset = GFSDataset(config=self.configs)
+        gfs_dataset = GFSDataset(config=self.configs, debug=self.debug)
         training_size = math.floor(len(gfs_dataset) * self.train_size)
         val_size = len(gfs_dataset) - training_size
 
@@ -232,22 +239,25 @@ class GFSDataModule(pl.LightningDataModule):
         for i in range(gfs_dataset.output_shape[0]):
             self.idx_to_variable[i] = gfs_dataset.idx_to_variable(i)
 
+        print(f"Memory after Data Setup: {check_gpu_memory():.2f} GB")
+
+
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
             self.train_dataset,
             self.batch_size,
-            num_workers=16,
+            num_workers=4,
             shuffle=True,
-            persistent_workers=True,
+            persistent_workers=False,
         )
 
     def val_dataloader(self):
         return torch.utils.data.DataLoader(
             self.val_dataset,
             self.batch_size,
-            num_workers=16,
+            num_workers=4,
             shuffle=False,
-            persistent_workers=True,
+            persistent_workers=False,
         )
 
     def test_dataloader(self):

@@ -70,5 +70,7 @@ inference:
   variable: "msl"
   save_path: "gfs_converter_ckpt"
   logs_path: "gfs_converter_logs"
-  feature_dims: [256, 512, 1024]
+  feature_dims: [256, 512]
   batch_size: 1
+  debug_data: false
+  debug_model: false

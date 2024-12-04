@@ -13,6 +13,7 @@ import yaml
 from argparse import ArgumentParser
 import torch
 
+from data.utils import print_debug, check_gpu_memory
 from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
 from data.dataloader import GFSDataModule
@@ -73,6 +74,9 @@ def main():
 
     checkpoint_save_path = config['inference']['save_path']
     logs_save_path = config['inference']['logs_path']
+    batch_size = config['inference']['batch_size']
+    debug_data = config['inference']['debug_data']
+    debug_model = config['inference']['debug_model']
 
     if not os.path.exists(checkpoint_save_path):
         os.makedirs(checkpoint_save_path)
@@ -83,12 +87,12 @@ def main():
     # Download GFS and ERA5 data
     download_process_data(config)
 
-    batch_size = config['inference']['batch_size']
-
     # Instantiate dataloader
-    dm = GFSDataModule(config, batch_size=batch_size)
+    print(f"Memory Available before DataLoader: {check_gpu_memory():.2f} GB")
+    dm = GFSDataModule(config, batch_size=batch_size, debug=debug_data)
     dm.prepare_data()
     dm.setup()
+    print(f"Memory Available after DataLoader: {check_gpu_memory():.2f} GB")
 
     # How many channels are being input and output?
     input_channels = dm.input_shape[0]
@@ -105,13 +109,16 @@ def main():
     print("Input Channels: ", input_channels, "Output Channels: ", output_channels)
     print("Input Shape: ", dm.input_shape, "Output Shape: ", dm.output_shape)
 
-    print("\nIndex to Variables:")
-    print(dm.idx_to_variable)
+    # print("\nIndex to Variables:")
+    # print(dm.idx_to_variable)
 
     # # Instantiate Lightning module
-    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels,
-                                  samples=batch_size, height=h, width=w, double=False,
-                                    feature_dims=feature_dims, use_se=True, r=8)
+    print(f"Memory before Lightning Module: {check_gpu_memory():.2f} GB")
+    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, 
+                                 channel_mapper=dm.idx_to_variable, samples=batch_size, 
+                                  height=h, width=w, double=False, feature_dims=feature_dims,
+                                   use_se=True, r=8, debug=debug_model)
+    print(f"Memory after Lightning Module: {check_gpu_memory():.2f} GB")
 
     # Instantiate Callbacks & Loggers
     early_stop_callback = EarlyStopping(

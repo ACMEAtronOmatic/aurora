@@ -22,8 +22,7 @@ from torchinfo import summary
 import pytorch_lightning as pl
 from pytorch_msssim import MS_SSIM
 
-from data.dataloader import CHANNEL_MAP, LEVEL_MAP
-from data.era5_download import download_era5
+from data.utils import print_debug, check_gpu_memory
 
 ERA5_GLOBAL_RANGES = {
     # Surface Variables
@@ -40,31 +39,17 @@ ERA5_GLOBAL_RANGES = {
     'z': {'min': -1000, 'max': 60000},  # Geopotential Height [m]
 }
 
-ERA5_INDEX_TO_VARIABLE = {}
-
-def get_model_memory_usage(model):
-    param_size = 0
-    for param in model.parameters():
-        param_size += param.nelement() * param.element_size()
-    
-    buffer_size = 0
-    for buffer in model.buffers():
-        buffer_size += buffer.nelement() * buffer.element_size()
-    
-    return {
-        'Parameters (MB)': param_size / 1024 / 1024,
-        'Buffers (MB)': buffer_size / 1024 / 1024,
-        'Total (MB)': (param_size + buffer_size) / 1024 / 1024
-    }
 
 class Loss(nn.Module):
-    def __init__(self, remap=True, exponent=5.0, power=3.0, constant=1.0, channels=16):
+    def __init__(self, channel_mapper, remap=True, exponent=5.0, power=3.0, constant=1.0, channels=16, debug=False):
         super().__init__()
 
+        self.debug = debug
         self.remap = remap
         self.exponent = exponent
         self.power = power
         self.constant = constant
+        self.channel_mapper = channel_mapper
 
         # NOTE: data range must be consistent, which requires remapping the channels
         # To a consistent range of [0, 1]
@@ -76,10 +61,18 @@ class Loss(nn.Module):
         # Use remap if data is not already in [0, 1]
         if self.remap:
             # For each channel in x and y, remap to [0, 1]
-            for c in ERA5_GLOBAL_RANGES.keys():
-                for l in LEVEL_MAP.keys():
-                    x[c, l, :, :] = torch.clamp((x[c, l, :, :] - ERA5_GLOBAL_RANGES[c]['min']) / (ERA5_GLOBAL_RANGES[c]['max'] - ERA5_GLOBAL_RANGES[c]['min']), 0, 1)
-                    y[c, l, :, :] = torch.clamp((y[c, l, :, :] - ERA5_GLOBAL_RANGES[c]['min']) / (ERA5_GLOBAL_RANGES[c]['max'] - ERA5_GLOBAL_RANGES[c]['min']), 0, 1)
+            # Map the predicted tensor based on predicted variable/level
+            _, channels, _, _ = x.size()
+
+            for c in range(channels):
+                # Get the associated variable
+                var, _ = self.channel_mapper[c]
+                min_val = ERA5_GLOBAL_RANGES[var]['min']
+                max_val = ERA5_GLOBAL_RANGES[var]['max']
+
+                x[:, c, :, :] = (x[:, c, :, :] - min_val) / (max_val - min_val)
+                y[:, c, :, :] = (y[:, c, :, :] - min_val) / (max_val - min_val)
+
 
         # MS SSIM is always non-negative
         ssim_loss = 1 - self.ms_ssim_module(x, y)
@@ -105,9 +98,10 @@ class SEAttnBlock(nn.Module):
     Often used after a convolutional layer to refine feature representations
     
     '''
-    def __init__(self, c_in, r=8):
+    def __init__(self, c_in, r=8, debug=False):
         super().__init__()
         
+        self.debug = debug
         # Define the functions/layers that will be used
 
         # Adaptive pooling allows you to define the size of the output
@@ -123,7 +117,7 @@ class SEAttnBlock(nn.Module):
 
 
     def forward(self, x):
-        print(f"\t\tSE - Input: {x.shape}")
+        print_debug(self.debug, f"\t\tSE - Input: {x.shape}")
 
         # TODO: why is there sometimes a batch dimension?
 
@@ -132,12 +126,12 @@ class SEAttnBlock(nn.Module):
         # GAP, compresses to a 2D tensor bxc (H & W are 1)
         y = self.pool(x).view(batches, channels)
 
-        print(f"\t\tSE - GAP: {y.shape}")
+        print_debug(self.debug, f"\t\tSE - GAP: {y.shape}")
 
         # Apply Excitement Layer, reshape to tensor bxcx1x1
         y = self.fc(y).view(batches, channels, 1, 1)
 
-        print(f"\t\tSE - Excitement: {y.shape}")
+        print_debug(self.debug, f"\t\tSE - Excitement: {y.shape}")
 
         # expand_as will match y to the shape of x
         return x * y.expand_as(x)
@@ -149,8 +143,10 @@ class Conv2DBlock(nn.Module):
     Can use SE blocks for channel attention
     '''
 
-    def __init__(self, c_in, c_out, samples, height, width, use_se=True, r=8, double=False):
+    def __init__(self, c_in, c_out, samples, height, width, use_se=True, r=8, double=False, debug=False):
         super().__init__()
+
+        self.debug = debug
 
         # Define convolutional layer
         # Input: [samples, c_in, levels, height, width]
@@ -176,11 +172,11 @@ class Conv2DBlock(nn.Module):
 
 
     def forward(self, x):
-        print(f"\t\tCONV - Input: {x.shape}")
+        print_debug(self.debug, f"\t\tCONV - Input: {x.shape}")
         x = self.conv(x)
-        print(f"\t\tCONV - Post Conv2D: {x.shape}")
+        print_debug(self.debug, f"\t\tCONV - Post Conv2D: {x.shape}")
         x = self.se(x)
-        print(f"\t\tCONV -Post SE: {x.shape}")
+        print_debug(self.debug, f"\t\tCONV -Post SE: {x.shape}")
         return x
 
 
@@ -190,11 +186,13 @@ class Encoder(nn.Module):
     '''
 
     def __init__(self, c_in, samples, height, width,
-                 use_se=True, r=8, feature_dims=[64, 128, 256, 512], double=False):
+                 use_se=True, r=8, feature_dims=[64, 128, 256, 512], double=False, debug=False):
         super().__init__()
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.downsampling = nn.ModuleList()
+
+        self.debug = debug
 
         c = c_in
 
@@ -203,10 +201,10 @@ class Encoder(nn.Module):
             self.downsampling.append(
                 Conv2DBlock(c_in=c, c_out=f, samples=samples,
                              height=height//(2**i), width=width//(2**i),
-                              use_se=use_se, r=r, double=double)
+                              use_se=use_se, r=r, double=double, debug=debug)
             )
 
-            print(f"Conv2D Block: {c} -> {f}, H={height//(2**i)}, W={width//(2**i)}")
+            print_debug(self.debug, f"Conv2D Block: {c} -> {f}, H={height//(2**i)}, W={width//(2**i)}")
 
             c = f
 
@@ -214,12 +212,12 @@ class Encoder(nn.Module):
     def forward(self, x):
         skip_connections = [] # will be returned to use in decoder
         for downsampling in self.downsampling:
-            print(f"\n\tENC - Input: {x.shape}")
+            print_debug(self.debug, f"\n\tENC - Input: {x.shape}")
             x = downsampling(x)            
-            print(f"\tENC - Post Downsampling: {x.shape}")
+            print_debug(self.debug, f"\tENC - Post Downsampling: {x.shape}")
             skip_connections.append(x)
             x = self.pool(x) # reduces spatial resolution by half
-            print(f"\tENC - Post Pooling: {x.shape}")
+            print_debug(self.debug, f"\tENC - Post Pooling: {x.shape}")
 
 
         return x, skip_connections
@@ -242,10 +240,11 @@ class Decoder(nn.Module):
 
     def __init__(self, samples, height, width,
                  feature_dims=[64, 128, 256, 512],
-                  use_se=True, r=8, double=False, skip_method="add"):
+                  use_se=True, r=8, double=False, skip_method="add", debug=False):
         super().__init__()
 
         self.skip_method = skip_method
+        self.debug = debug
 
         self.upsampling = nn.ModuleList()
         self.dec = nn.ModuleList()
@@ -270,34 +269,34 @@ class Decoder(nn.Module):
                 nn.ConvTranspose2d(f, f, kernel_size=2, stride=2)
             )
 
-            print(f"Conv Transposed 2D: {f} -> {f}")
+            print_debug(self.debug, f"Conv Transposed 2D: {f} -> {f}")
 
             # Refine upsampling by decreasing channels
             self.dec.append(
                 Conv2DBlock(c_in=f, c_out=f_out, 
                             samples=samples, height=height//(2**layer),
-                              width=width//(2**layer), use_se=use_se, r=r, double=double)
+                              width=width//(2**layer), use_se=use_se, r=r, double=double, debug=debug)
             )
 
-            print(f"Conv2D Block: {f} -> {f_out}, H={height//(2**layer)}, W={width//(2**layer)}")
+            print_debug(self.debug, f"Conv2D Block: {f} -> {f_out}, H={height//(2**layer)}, W={width//(2**layer)}")
 
 
     def forward(self, x, skip_connections):
 
         skip_connections = skip_connections[::-1]
         for i, (upsampling, dec) in enumerate(zip(self.upsampling, self.dec)):
-            print(f"\n\tDEC - Input: {x.shape}")
+            print_debug(self.debug, f"\n\tDEC - Input: {x.shape}")
             
             x = upsampling(x) # transposed conv
-            print(f"\tDEC - Upsampling: {x.shape}")
-            print(f"\tDEC - Skip Connection: {skip_connections[i].shape}")
+            print_debug(self.debug, f"\tDEC - Upsampling: {x.shape}")
+            print_debug(self.debug, f"\tDEC - Skip Connection: {skip_connections[i].shape}")
 
             if self.skip_method == "add":
                 # May need to upsample the skip connection as well
                 # Typically only if f//2 does not exactly match the next feature dim
                 # Which can happen in the very last layer (e.g. 720 vs 721)
                 if x.shape != skip_connections[i].shape:
-                    print(f"DEC - Shape Mismatch: X = {x.shape} | Skip = {skip_connections[i].shape}")
+                    print_debug(self.debug, f"DEC - Shape Mismatch: X = {x.shape} | Skip = {skip_connections[i].shape}")
 
                     # Check if 3D or 4D tensor
                     if len(x.shape) == 3:
@@ -323,10 +322,10 @@ class Decoder(nn.Module):
                 # which needs to get reflected in the decoder layer channels
                 x = torch.cat((x, skip_connections[i]), dim=1)
 
-            print(f"DEC - Skip Added: {x.shape}")
+            print_debug(self.debug, f"DEC - Skip Added: {x.shape}")
 
             x = dec(x) # refinement'
-            print(f"DEC - Refined: {x.shape}")
+            print_debug(self.debug, f"DEC - Refined: {x.shape}")
 
         return x
 
@@ -335,65 +334,63 @@ class GFSUnbiaser(nn.Module):
     def __init__(self, in_channels, out_channels, 
                  samples, height, width,
                   feature_dims=[64, 128, 256, 512],
-                   use_se=True, r=8, double=False):
+                   use_se=True, r=8, double=False, debug=False):
         super().__init__()
 
-        print("Instantiating Encoder...")
+        self.debug = debug
+
+        print_debug(self.debug, "Instantiating Encoder...")
         self.encoder = Encoder(c_in=in_channels, samples=samples, height=height, width=width,
-                                  use_se=use_se, r=r, feature_dims=feature_dims, double=double)
+                                  use_se=use_se, r=r, feature_dims=feature_dims, double=double, debug=self.debug)
         
-        # print("Encoder Summary:")
-        # summary(self.encoder, (levels, in_channels, height, width))
-        
-        print("Instantiating Decoder...")
+        print_debug(self.debug, "Instantiating Decoder...")
         self.decoder = Decoder(feature_dims=feature_dims,
                                 samples=samples, height=height, width=width, r=r,
-                                    use_se=use_se, double=double, skip_method="add")
-        
-        # print("Decoder Summary:")
-        # # NOTE: all skip connections are passed to decoder. Need tensor for every layer
-        # # Should be ordered from least to most channels
-        # bottleneck_input = torch.randn(levels, feature_dims[-1], height//2**len(feature_dims), width//2**len(feature_dims))
-        # test_skip_connections = [torch.randn(levels, feature_dims[0], height//2**0, width//2**0), 
-        #                           torch.randn(levels, feature_dims[1], height//2**1, width//2**1),
-        #                           torch.randn(levels, feature_dims[2], height//2**2, width//2**2),
-        #                           torch.randn(levels, feature_dims[3], height//2**3, width//2**3)]
-        
-        # summary(self.decoder, input_data=[bottleneck_input, test_skip_connections[::-1]])
+                                    use_se=use_se, double=double, skip_method="add", debug=self.debug)
    
         self.final_conv = nn.Conv2d(feature_dims[0], out_channels, kernel_size=1)
 
-        print("Done!")
+        print_debug(self.debug, "Done!")
 
     def forward(self, x):
-        print(f"MODEL - Input: {x.shape}")
+        print_debug(self.debug, f"MODEL - Input: {x.shape}")
         x, skip_connections = self.encoder(x)
-        print(f"MODEL - Post Encoder: {x.shape}")
+        print_debug(self.debug, f"MODEL - Post Encoder: {x.shape}")
         x = self.decoder(x, skip_connections)
-        print(f"MODEL - Post Decoder: {x.shape}")
+        print_debug(self.debug, f"MODEL - Post Decoder: {x.shape}")
         x = self.final_conv(x)
-        print(f"MODEL - After Final Conv: {x.shape}")
+        print_debug(self.debug, f"MODEL - After Final Conv: {x.shape}")
 
         return x
     
 
 class LightningGFSUnbiaser(pl.LightningModule):
-    def __init__(self, in_channels, out_channels, 
+    def __init__(self, in_channels, out_channels, channel_mapper, 
                  samples, height, width,
                   feature_dims=[64, 128, 256, 512],
-                   use_se=True, r=8, double=False):
+                   use_se=True, r=8, double=False, debug=False):
         super().__init__()
+
+        if len(channel_mapper) != out_channels:
+            raise ValueError(f"Length of channel mapper must be equal to number of output channels. Got {len(self.channel_mapper)} vs {out_channels}")
+        
+        if len(feature_dims) < 2:
+            raise ValueError(f"Feature dimensions must be at least 2. Got {len(feature_dims)}")
+        
+        self.channel_mapper = channel_mapper
+        self.debug = debug
 
         self.model = GFSUnbiaser(in_channels, out_channels, 
                                  feature_dims=feature_dims,
                                  samples=samples, height=height, width=width,
-                                   use_se=use_se, r=r, double=double)
+                                   use_se=use_se, r=r, double=double, debug=debug)
         
-        print("Model Summary:")
+        print_debug(self.debug, "Model Summary:")
         summary(self.model, (samples, in_channels, height, width))
         
-        self.loss_fxn = Loss(remap=True, exponent=5.0, power=3.0,
-                              constant=1.0, channels=out_channels)
+        self.loss_fxn = Loss(channel_mapper=self.channel_mapper,remap=True, exponent=5.0, power=3.0,
+                              constant=1.0, channels=out_channels, debug=debug)
+        
 
     def forward(self, x):
         return self.model(x)
@@ -411,8 +408,22 @@ class LightningGFSUnbiaser(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
+        # Check if there are nan or inf values in the input tensor
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            raise ValueError("Input tensor contains NaN or Inf values")
+
         logits = self.forward(x)
+
+        # Check if there are nan or inf values in the output tensor
+        if torch.isnan(logits).any() or torch.isinf(logits).any():
+            raise ValueError("Output tensor contains NaN or Inf values")
+
         loss = self.loss_fxn.forward(logits, y)
+
+        # Check if there are nan or inf values in the loss tensor
+        if torch.isnan(loss).any() or torch.isinf(loss).any():
+            raise ValueError("Loss tensor contains NaN or Inf values")
+
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
