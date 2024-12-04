@@ -76,6 +76,16 @@ class GFSDataset(torch.utils.data.Dataset):
         self.era_surface = xr.open_dataset(self.surface_path, engine="netcdf4")
         self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")
 
+        # Get levels and number of channels for the atmos dataset, channels from the surface dataset
+        self.atmos_levels = list(self.era_atmos.level.values)
+        self.atmos_levels = [int(level) for level in self.atmos_levels]
+        self.atmos_channels = list(self.era_atmos.data_vars.keys())
+        self.surface_channels = list(self.era_surface.data_vars.keys())
+
+        print("ERA Surface Channels: ", self.surface_channels)
+        print("ERA Atmos Channels: ", self.atmos_channels)
+        print("ERA Atmos Levels: ", self.atmos_levels)
+
         self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
 
 
@@ -89,6 +99,16 @@ class GFSDataset(torch.utils.data.Dataset):
         # print("ERA Surface Variables: ", self.era_surface.data_vars.keys())
         # print("ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
 
+    def idx_to_variable(self, tensor_idx):
+        # Example: idx 9, channel 2, level 1 of 3 channels, 4 levels
+        # To get channel 2 from idx 9: 9//4 == 2
+        # To get level 1 from idx 9: 9%4 == 1
+        atmos_len = len(self.atmos_channels) * len(self.atmos_levels)
+
+        if tensor_idx < atmos_len:
+            return self.atmos_channels[tensor_idx//len(self.atmos_levels)], self.atmos_levels[tensor_idx%len(self.atmos_levels)]
+        else:
+            return self.surface_channels[tensor_idx-atmos_len], 'surface'
 
     def __len__(self):
         return len(self.times)
@@ -129,6 +149,8 @@ class GFSDataset(torch.utils.data.Dataset):
         era_atmos_tensor = torch.from_numpy(era_atmos_slice.to_array().values).to(dtype=torch.float32)
 
         # New Atmos: [channel*level, lat, lon]
+        # Will be ordered by channel, then level s.t.
+        # Index 1 == (channel=0, level=0), Index 2 == (channel=0, level=1), etc
         era_atmos_tensor = era_atmos_tensor.view(era_atmos_tensor.shape[0] * era_atmos_tensor.shape[1],
                                                   era_atmos_tensor.shape[2], era_atmos_tensor.shape[3])
 
@@ -139,7 +161,6 @@ class GFSDataset(torch.utils.data.Dataset):
 
         # Repeat surface tensor for each level
         # NOTE: not needed if combining channel and level dimensions
-        # era_surface_tensor = era_surface_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
         truth_tensor = torch.cat((era_surface_tensor, era_atmos_tensor), dim=0)
 
         self.output_shape = truth_tensor.shape
@@ -205,6 +226,11 @@ class GFSDataModule(pl.LightningDataModule):
 
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
+
+        # Create a dictionary of indices to era variables
+        self.idx_to_variable = {}
+        for i in range(gfs_dataset.output_shape[0]):
+            self.idx_to_variable[i] = gfs_dataset.idx_to_variable(i)
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(

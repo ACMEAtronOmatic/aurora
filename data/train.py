@@ -83,7 +83,7 @@ def main():
     # Download GFS and ERA5 data
     download_process_data(config)
 
-    batch_size = 1
+    batch_size = config['inference']['batch_size']
 
     # Instantiate dataloader
     dm = GFSDataModule(config, batch_size=batch_size)
@@ -104,6 +104,9 @@ def main():
 
     print("Input Channels: ", input_channels, "Output Channels: ", output_channels)
     print("Input Shape: ", dm.input_shape, "Output Shape: ", dm.output_shape)
+
+    print("\nIndex to Variables:")
+    print(dm.idx_to_variable)
 
     # # Instantiate Lightning module
     model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels,
