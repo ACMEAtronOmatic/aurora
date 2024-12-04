@@ -144,6 +144,7 @@ def main():
         max_epochs=2,
         callbacks=[early_stop_callback, checkpoint_callback, progress_callback],
         logger=tensorboard_logger,
+        log_every_n_steps=5,
     )
 
     print("Starting Training...")

@@ -6,48 +6,34 @@ import pytorch_lightning as pl
 import xarray as xr
 import torch
 from PIL import Image
+import torch.nn.functional as F
 
 from data.utils import print_debug, check_gpu_memory
 from data.gfs_download import download_gfs, process_gfs
 from data.era5_download import download_static_era5
 
-# Channel Map after concatenating ERA5 Static Variables
-CHANNEL_MAP = {
-    't': 0, 
-    'u': 1,
-    'v': 2,
-    'r': 3, 
-    'q': 4,
-    'mslet': 5, 
-    'slt': 6, 
-    'gh': 7,
-    'orog': 8, 
-    'lsm': 9,
-    'tv': 10,
-    'theta': 11,
-    'ns2': 12, 
-    'z_era': 13, 
-    'lsm_era': 14, 
-    'slt_era': 15
-}
+def interpolate_missing_values(tensor, threshold = 0.1):
 
-# 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000
-LEVEL_MAP = {
-    1000: 0,
-    925: 1,
-    850: 2,
-    700: 3,
-    600: 4,
-    500: 5,
-    400: 6,
-    300: 7,
-    250: 8,
-    200: 9,
-    150: 10,
-    100: 11,
-    50: 12
-}
+    tensor = torch.nan_to_num(tensor, posinf=1e30, neginf=-1e30)
 
+    # Check for NaN and Inf values
+    mask = torch.isnan(tensor)
+
+    # Check if there is a large number of missing values
+    missing_ratio = mask.sum() / tensor.numel()
+    if missing_ratio >= threshold:
+        print("WARNING: tensor contains too many missing values: ", missing_ratio.item())
+
+    # Interpolate missing values
+    if missing_ratio > 0:
+        interpolated_values = F.interpolate(tensor.unsqueeze(0), size=tensor.shape[1:], mode='nearest').squeeze(0)
+        tensor[mask] = interpolated_values[mask]
+
+    # Check for NaN and Inf values again
+    if torch.isnan(tensor).any() or torch.isinf(tensor).any():
+        print("\n***WARNING: tensor contains NaN or Inf values after interpolation***\n")
+
+    return tensor
 
 
 class GFSDataset(torch.utils.data.Dataset):
@@ -170,6 +156,12 @@ class GFSDataset(torch.utils.data.Dataset):
         self.output_shape = truth_tensor.shape
 
         print_debug(self.debug, "Truth Tensor Shape: ", truth_tensor.shape)
+
+        # Check if there are any nans/infs in the tensor and correct them
+        input_tensor = interpolate_missing_values(input_tensor)
+        truth_tensor = interpolate_missing_values(truth_tensor)
+
+        print_debug(self.debug, "Missing Values Interpolated", input_tensor.shape, truth_tensor.shape)
 
         return input_tensor, truth_tensor
 
