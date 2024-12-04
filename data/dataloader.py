@@ -115,7 +115,7 @@ class GFSDataset(torch.utils.data.Dataset):
         # input_tensor = input_tensor.view(input_tensor.shape[0]*input_tensor.shape[1],
         #                                   input_tensor.shape[2], input_tensor.shape[3])
 
-        print("Input Tensor Shape: ", input_tensor.shape)
+        # print("Input Tensor Shape: ", input_tensor.shape)
 
         self.input_shape = input_tensor.shape
 
@@ -133,24 +133,18 @@ class GFSDataset(torch.utils.data.Dataset):
                                                   era_atmos_tensor.shape[2], era_atmos_tensor.shape[3])
 
         # Static: [channel, lat, lon]
-        print("ERA Static Tensor Shape: ", self.era_static_tensor.shape)
-        print("ERA Surface Tensor Shape: ", era_surface_tensor.shape)
-        print("ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
-
-        # Final truth tensor should have shape: [channel, level, lat, lon]
-        # [9, 13, 721, 1440]
-        # If combining channel*level:
-        # [117, 721, 1440]
+        # print("ERA Static Tensor Shape: ", self.era_static_tensor.shape)
+        # print("ERA Surface Tensor Shape: ", era_surface_tensor.shape)
+        # print("ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
 
         # Repeat surface tensor for each level
         # NOTE: not needed if combining channel and level dimensions
         # era_surface_tensor = era_surface_tensor.unsqueeze(1).repeat(1, len(self.levels), 1, 1)
         truth_tensor = torch.cat((era_surface_tensor, era_atmos_tensor), dim=0)
 
-
         self.output_shape = truth_tensor.shape
 
-        print("Truth Tensor Shape: ", truth_tensor.shape)
+        # print("Truth Tensor Shape: ", truth_tensor.shape)
 
         return input_tensor, truth_tensor
 
@@ -211,8 +205,6 @@ class GFSDataModule(pl.LightningDataModule):
 
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
-
-        del gfs_dataset
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(

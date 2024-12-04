@@ -100,13 +100,15 @@ def main():
     h = dm.output_shape[1]
     w = dm.output_shape[2]
 
+    feature_dims = config['inference']['feature_dims']  
+
     print("Input Channels: ", input_channels, "Output Channels: ", output_channels)
     print("Input Shape: ", dm.input_shape, "Output Shape: ", dm.output_shape)
 
     # # Instantiate Lightning module
     model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels,
                                   samples=batch_size, height=h, width=w, double=False,
-                                    feature_dims=[32, 64, 128], use_se=True, r=8)
+                                    feature_dims=feature_dims, use_se=True, r=8)
 
     # Instantiate Callbacks & Loggers
     early_stop_callback = EarlyStopping(

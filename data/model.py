@@ -38,8 +38,9 @@ ERA5_GLOBAL_RANGES = {
     'u': {'min': -110, 'max': 110},  # U-wind [m/s]
     'v': {'min': -100, 'max': 100},  # V-wind [m/s]
     'z': {'min': -1000, 'max': 60000},  # Geopotential Height [m]
-    
 }
+
+ERA5_INDEX_TO_VARIABLE = {}
 
 def get_model_memory_usage(model):
     param_size = 0
@@ -122,17 +123,21 @@ class SEAttnBlock(nn.Module):
 
 
     def forward(self, x):
-        print("SE Block Input: ", x.shape)
+        print(f"\t\tSE - Input: {x.shape}")
 
         # TODO: why is there sometimes a batch dimension?
 
-        channels, _, _ = x.size()
+        batches, channels, _, _ = x.size()
 
         # GAP, compresses to a 2D tensor bxc (H & W are 1)
-        y = self.pool(x).view(channels)
+        y = self.pool(x).view(batches, channels)
+
+        print(f"\t\tSE - GAP: {y.shape}")
 
         # Apply Excitement Layer, reshape to tensor bxcx1x1
-        y = self.fc(y).view(channels, 1, 1)
+        y = self.fc(y).view(batches, channels, 1, 1)
+
+        print(f"\t\tSE - Excitement: {y.shape}")
 
         # expand_as will match y to the shape of x
         return x * y.expand_as(x)
@@ -171,8 +176,11 @@ class Conv2DBlock(nn.Module):
 
 
     def forward(self, x):
+        print(f"\t\tCONV - Input: {x.shape}")
         x = self.conv(x)
+        print(f"\t\tCONV - Post Conv2D: {x.shape}")
         x = self.se(x)
+        print(f"\t\tCONV -Post SE: {x.shape}")
         return x
 
 
@@ -206,9 +214,12 @@ class Encoder(nn.Module):
     def forward(self, x):
         skip_connections = [] # will be returned to use in decoder
         for downsampling in self.downsampling:
+            print(f"\n\tENC - Input: {x.shape}")
             x = downsampling(x)            
+            print(f"\tENC - Post Downsampling: {x.shape}")
             skip_connections.append(x)
             x = self.pool(x) # reduces spatial resolution by half
+            print(f"\tENC - Post Pooling: {x.shape}")
 
 
         return x, skip_connections
@@ -272,23 +283,21 @@ class Decoder(nn.Module):
 
 
     def forward(self, x, skip_connections):
-        print(f"Decoder Input: {x.shape}")
 
         skip_connections = skip_connections[::-1]
         for i, (upsampling, dec) in enumerate(zip(self.upsampling, self.dec)):
-            print(f"\nLoop {i}: ")
-            print(f"Input: {x.shape}")
+            print(f"\n\tDEC - Input: {x.shape}")
             
             x = upsampling(x) # transposed conv
-            print(f"Upsampling: {x.shape}")
-            print(f"Skip Connection: {skip_connections[i].shape}")
+            print(f"\tDEC - Upsampling: {x.shape}")
+            print(f"\tDEC - Skip Connection: {skip_connections[i].shape}")
 
             if self.skip_method == "add":
                 # May need to upsample the skip connection as well
                 # Typically only if f//2 does not exactly match the next feature dim
                 # Which can happen in the very last layer (e.g. 720 vs 721)
                 if x.shape != skip_connections[i].shape:
-                    print(f"Shape Mismatch: X = {x.shape} | Skip = {skip_connections[i].shape}")
+                    print(f"DEC - Shape Mismatch: X = {x.shape} | Skip = {skip_connections[i].shape}")
 
                     # Check if 3D or 4D tensor
                     if len(x.shape) == 3:
@@ -296,14 +305,14 @@ class Decoder(nn.Module):
                         # Requires min. 4D
                         x = F.interpolate(
                             x.unsqueeze(0),
-                            size=skip_connections[i].shape[1:],  # Match spatial dimensions of the skip connection
+                            size=skip_connections[i].shape[2:],  # Match spatial dimensions of the skip connection
                             mode='bilinear', 
                             align_corners=False
                         ).squeeze(0)
                     elif len(x.shape) == 4:
                         x = F.interpolate(
                             x,
-                            size=skip_connections[i].shape[1:],  # Match spatial dimensions of the skip connection
+                            size=skip_connections[i].shape[2:],  # Match spatial dimensions of the skip connection
                             mode='bilinear', 
                             align_corners=False
                         )
@@ -314,10 +323,10 @@ class Decoder(nn.Module):
                 # which needs to get reflected in the decoder layer channels
                 x = torch.cat((x, skip_connections[i]), dim=1)
 
-            print(f"Skip Added: {x.shape}")
+            print(f"DEC - Skip Added: {x.shape}")
 
             x = dec(x) # refinement'
-            print(f"Refined: {x.shape}")
+            print(f"DEC - Refined: {x.shape}")
 
         return x
 
@@ -357,9 +366,13 @@ class GFSUnbiaser(nn.Module):
         print("Done!")
 
     def forward(self, x):
+        print(f"MODEL - Input: {x.shape}")
         x, skip_connections = self.encoder(x)
+        print(f"MODEL - Post Encoder: {x.shape}")
         x = self.decoder(x, skip_connections)
+        print(f"MODEL - Post Decoder: {x.shape}")
         x = self.final_conv(x)
+        print(f"MODEL - After Final Conv: {x.shape}")
 
         return x
     
@@ -377,7 +390,7 @@ class LightningGFSUnbiaser(pl.LightningModule):
                                    use_se=use_se, r=r, double=double)
         
         print("Model Summary:")
-        summary(self.model, (in_channels, height, width))
+        summary(self.model, (samples, in_channels, height, width))
         
         self.loss_fxn = Loss(remap=True, exponent=5.0, power=3.0,
                               constant=1.0, channels=out_channels)
