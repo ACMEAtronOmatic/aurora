@@ -22,7 +22,10 @@ from torchinfo import summary
 import pytorch_lightning as pl
 from pytorch_msssim import MS_SSIM
 
+import matplotlib.pyplot as plt
+
 from data.utils import print_debug, check_gpu_memory
+from inference.generate_outputs import visualize_tensor
 
 ERA5_GLOBAL_RANGES = {
     # Surface Variables
@@ -32,11 +35,11 @@ ERA5_GLOBAL_RANGES = {
     'v10': {'min': -80, 'max': 80},  # 10m V-wind [m/s]
     
     # Atmospheric Variables (at all pressure levels)
-    't': {'min': 170, 'max': 350},  # Temperature [K]
+    't': {'min': 160, 'max': 350},  # Temperature [K]
     'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
     'u': {'min': -110, 'max': 110},  # U-wind [m/s]
     'v': {'min': -100, 'max': 100},  # V-wind [m/s]
-    'z': {'min': -1000, 'max': 60000},  # Geopotential Height [m]
+    'z': {'min': -5000, 'max': 225000},  # Geopotential Height [m]
 }
 
 
@@ -66,12 +69,30 @@ class Loss(nn.Module):
 
             for c in range(channels):
                 # Get the associated variable
-                var, _ = self.channel_mapper[c]
+                var, level = self.channel_mapper[c]
                 min_val = ERA5_GLOBAL_RANGES[var]['min']
                 max_val = ERA5_GLOBAL_RANGES[var]['max']
 
-                x[:, c, :, :] = (x[:, c, :, :] - min_val) / (max_val - min_val)
-                y[:, c, :, :] = (y[:, c, :, :] - min_val) / (max_val - min_val)
+                print_debug(self.debug, "\nVariable: ", var, "Level: ", level)
+                print_debug(self.debug, "X:", x[:, c, :, :].min().item(), x[:, c, :, :].median().item(), x[:, c, :, :].max().item())
+                print_debug(self.debug, "Y:", y[:, c, :, :].min().item(), y[:, c, :, :].median().item(), y[:, c, :, :].max().item())
+
+                if self.debug:
+                    visualize_tensor(y, c, self.channel_mapper, output_path="debugging")
+
+                # Remap to [0, 1]
+                x[:, c, :, :] = torch.clamp((x[:, c, :, :] - min_val) / (max_val - min_val), 0, 1)
+                y[:, c, :, :] = torch.clamp((y[:, c, :, :] - min_val) / (max_val - min_val), 0, 1)
+
+                print_debug(self.debug, "X REMAPPED:", x[:, c, :, :].min().item(), x[:, c, :, :].median().item(), x[:, c, :, :].max().item())
+                print_debug(self.debug, "Y REMAPPED:", y[:, c, :, :].min().item(), y[:, c, :, :].median().item(), y[:, c, :, :].max().item())
+
+                # Check for NaN and Inf value in these slices
+                if torch.isnan(x[:, c, :, :]).any() or torch.isinf(x[:, c, :, :]).any():
+                    raise ValueError("Input tensor contains NaN or Inf values after remapping")
+
+                if torch.isnan(y[:, c, :, :]).any() or torch.isinf(y[:, c, :, :]).any():
+                    raise ValueError("Output tensor contains NaN or Inf values after remapping")
 
 
         # MS SSIM is always non-negative

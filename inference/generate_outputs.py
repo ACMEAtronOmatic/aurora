@@ -6,7 +6,6 @@ import torch
 import numpy as np
 import os
 import xarray as xr
-from data.dataloader import CHANNEL_MAP, LEVEL_MAP
 
 def generate_outputs(model, batch, steps=28, device="cuda"):
     model.eval()
@@ -377,7 +376,7 @@ def visualize_gfs_era5(era5_data, gfs_data, steps=28, variable="wind", output_pa
         os.remove(i)
 
 
-def visualize_tensor(tensor, output_path="", variable="t", levels=LEVEL_MAP.keys(), format='mp4', fps=6):
+def visualize_tensor(tensor, channel, channel_mapper, output_path="", format='mp4', fps=6):
     print("Tensor Shape: ", tensor.shape)
 
     crs = ccrs.PlateCarree(central_longitude=180)
@@ -388,48 +387,56 @@ def visualize_tensor(tensor, output_path="", variable="t", levels=LEVEL_MAP.keys
 
     valid_tensor = torch.where(torch.isnan(tensor), torch.tensor(0, device=tensor.device), tensor)
 
-    min = torch.amin(valid_tensor[CHANNEL_MAP[variable], :, :, :]).item()
-    max = torch.amax(valid_tensor[CHANNEL_MAP[variable], :, :, :]).item()
-    med = torch.median(valid_tensor[CHANNEL_MAP[variable], :, :, :]).item()
+    variable, level = channel_mapper[channel]
 
-    images = []
+    tensor_slice = valid_tensor[0, channel, :, :]
+
+    min = torch.amin(tensor_slice).item()
+    max = torch.amax(tensor_slice).item()
+    med = torch.median(tensor_slice).item()
+
+    # min = torch.amin(valid_tensor[CHANNEL_MAP[variable], :, :, :]).item()
+    # max = torch.amax(valid_tensor[CHANNEL_MAP[variable], :, :, :]).item()
+    # med = torch.median(valid_tensor[CHANNEL_MAP[variable], :, :, :]).item()
 
     print("Tensor Shape: ", tensor.shape)
     print("Tensor Range: ", min, max)
 
-    for l in levels:
-        slice = valid_tensor[CHANNEL_MAP[variable], LEVEL_MAP[l], :, :]
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(1, 1, 1, projection=crs) # ERA
 
-        fig = plt.figure(figsize=(10, 6))
-        ax = fig.add_subplot(1, 1, 1, projection=crs) # ERA
-
-        tensor_values = slice.numpy()
-
-        im = ax.imshow(tensor_values, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
-
-        cbar = plt.colorbar(im, ax=ax, shrink=0.6)
-        cbar.set_label(variable)
-        cbar.set_ticks([min, med, max])
-
-        ax.coastlines(linewidth=0.7)
-
-        ax.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
-        # ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black')
-
-        ax.set_title(f"{variable} {l}")
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-        plt.tight_layout()
-        
-        temp = os.path.join(output_path, f"temporary_{l}.jpg")
-        plt.savefig(temp, bbox_inches='tight')
-        images.append(temp)
-        plt.close()
+    # Create a numpy array from this slice?
+    tensor_values = np.asarray(tensor_slice.detach().cpu().numpy())
 
 
-    output_file = os.path.join(output_path, f"tensor_{variable}.mp4")
-    generate_mp4(images, output_file, format=format, fps=fps)
+    im = ax.imshow(tensor_values, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+
+    cbar = plt.colorbar(im, ax=ax, shrink=0.6)
+    cbar.set_label(variable)
+    cbar.set_ticks([min, med, max])
+
+    ax.coastlines(linewidth=0.7)
+
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    # ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='black')
+
+    ax.set_title(f"C{channel}-{variable}-{level}")
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    plt.tight_layout()
+    
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    name = os.path.join(output_path, f"C{channel}-{variable}-{level}")
+    plt.savefig(name, bbox_inches='tight')
+    # images.append(temp)
+    # plt.close()
+
+
+    # output_file = os.path.join(output_path, f"tensor_{variable}.mp4")
+    # generate_mp4(images, output_file, format=format, fps=fps)
 
 
 

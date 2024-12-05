@@ -93,12 +93,14 @@ class GFSDataset(torch.utils.data.Dataset):
         # Example: idx 9, channel 2, level 1 of 3 channels, 4 levels
         # To get channel 2 from idx 9: 9//4 == 2
         # To get level 1 from idx 9: 9%4 == 1
-        atmos_len = len(self.atmos_channels) * len(self.atmos_levels)
+        surface_len = len(self.surface_channels)
 
-        if tensor_idx < atmos_len:
+        # NOTE: starts with surface, then has atmos
+        if tensor_idx >= surface_len:
+            tensor_idx -= surface_len
             return self.atmos_channels[tensor_idx//len(self.atmos_levels)], self.atmos_levels[tensor_idx%len(self.atmos_levels)]
         else:
-            return self.surface_channels[tensor_idx-atmos_len], 'surface'
+            return self.surface_channels[tensor_idx], 'surface'
 
     def __len__(self):
         return len(self.times)
@@ -108,6 +110,14 @@ class GFSDataset(torch.utils.data.Dataset):
         # Assume that time steps across ERA and GFS are aligned
 
         gfs_slice = self.gfs.isel(time=index)
+
+        # Print the order of the variables in gfs slice
+        for i, var in enumerate(gfs_slice.data_vars.keys()):
+            print_debug(self.debug, f"GFS Variable {i}: {var}")
+
+        # Print order of levels in the gfs slice
+        for i, level in enumerate(gfs_slice.level.values):
+            print_debug(self.debug, f"GFS Level {i}: {level}")
 
         # Dimensions: [channel, level, lat, lon]
         gfs_tensor = torch.from_numpy(gfs_slice.to_array().values).to(dtype=torch.float32)
@@ -131,6 +141,20 @@ class GFSDataset(torch.utils.data.Dataset):
 
         era_surface_slice = self.era_surface.isel(time=index)
         era_atmos_slice = self.era_atmos.isel(time=index)
+
+        # Print the order of the variables in era slice
+        for i, var in enumerate(era_surface_slice.data_vars.keys()):
+            print_debug(self.debug, f"ERA Surface Variable {i}: {var} | Min: {era_surface_slice[var].min().values} | Median: {era_surface_slice[var].median().values} | Max: {era_surface_slice[var].max().values}")
+
+        for i, var in enumerate(era_atmos_slice.data_vars.keys()):
+            print_debug(self.debug, f"ERA Atmos Variable {i}: {var} | Min: {era_atmos_slice[var].min().values} | Median: {era_atmos_slice[var].median().values} | Max: {era_atmos_slice[var].max().values}")
+
+        # Print the order of levels in the atmos slice
+        for i, level in enumerate(era_atmos_slice.level.values):
+            print_debug(self.debug, f"ERA Atmos Level {i}: {level}")
+
+        # TODO: remove
+        # exit(0)
 
         # Surface: [channel, lat, lon]
         era_surface_tensor = torch.from_numpy(era_surface_slice.to_array().values).to(dtype=torch.float32)
