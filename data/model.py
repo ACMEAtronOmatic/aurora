@@ -160,7 +160,7 @@ class SEAttnBlock(nn.Module):
 
 class Conv2DBlock(nn.Module):
     '''
-    Convolutional 3D block for spatio-temporal relationships
+    Convolutional 2d block for spatio-temporal relationships
     Can use SE blocks for channel attention
     '''
 

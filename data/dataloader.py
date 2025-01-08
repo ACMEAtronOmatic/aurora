@@ -12,6 +12,11 @@ from data.utils import print_debug, check_gpu_memory
 from data.gfs_download import download_gfs, process_gfs
 from data.era5_download import download_static_era5
 
+
+# Distinguish between GFS surface and atmospheric variables
+# To minimize total number of channels
+GFS_LAND_CHANNELS = ['lsm', 'mslet', 'slt', 'orog']
+
 def interpolate_missing_values(tensor, threshold = 0.1):
 
     tensor = torch.nan_to_num(tensor, posinf=1e30, neginf=-1e30)
@@ -113,11 +118,20 @@ class GFSDataset(torch.utils.data.Dataset):
 
         # Print the order of the variables in gfs slice
         for i, var in enumerate(gfs_slice.data_vars.keys()):
-            print_debug(self.debug, f"GFS Variable {i}: {var}")
+            print_debug(self.debug, f"GFS Variable {i}: {var}", "- Land" if var in GFS_LAND_CHANNELS else "")
 
         # Print order of levels in the gfs slice
         for i, level in enumerate(gfs_slice.level.values):
             print_debug(self.debug, f"GFS Level {i}: {level}")
+
+        # Extract land variables before converting to gfs tensor
+        gfs_land = gfs_slice[GFS_LAND_CHANNELS]
+        gfs_slice = gfs_slice.drop_vars(GFS_LAND_CHANNELS)
+
+        # Print the order of the variables in gfs slice
+        print_debug(self.debug, "After Extracting Land Variables:")
+        for i, var in enumerate(gfs_slice.data_vars.keys()):
+            print_debug(self.debug, f"GFS Variable {i}: {var}", "- Land" if var in GFS_LAND_CHANNELS else "")
 
         # Dimensions: [channel, level, lat, lon]
         gfs_tensor = torch.from_numpy(gfs_slice.to_array().values).to(dtype=torch.float32)
@@ -125,6 +139,9 @@ class GFSDataset(torch.utils.data.Dataset):
         # Need to combine channel and level dimensions: [channel*level, lat, lon]
         gfs_tensor = gfs_tensor.view(gfs_tensor.shape[0]*gfs_tensor.shape[1],
                                      gfs_tensor.shape[2], gfs_tensor.shape[3])
+        
+        # Now add the land variables
+        gfs_tensor = torch.cat((gfs_tensor, torch.from_numpy(gfs_land.to_array().values).to(dtype=torch.float32)), dim=0)
 
         print_debug(self.debug, "GFS Tensor Shape: ", gfs_tensor.shape)
         print_debug(self.debug, "ERA Statics Tensor Shape: ", self.era_static_tensor.shape)

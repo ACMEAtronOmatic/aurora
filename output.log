@@ -1,0 +1,70 @@
+nohup: ignoring input
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+/home/jgib124/aurora/aurora/a_env/lib/python3.12/site-packages/pytorch_lightning/callbacks/model_checkpoint.py:654: Checkpoint directory /home/jgib124/aurora/aurora/gfs_converter_ckpt exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+Processed GFS Data for this time range found
+ERA5 Data for this time range found
+Memory Available before DataLoader: 51.01 GB
+Memory after Preparing Data: 51.01 GB
+Memory after Data Setup: 51.01 GB
+Memory Available after DataLoader: 51.01 GB
+Input Channels:  85 Output Channels:  69
+Input Shape:  torch.Size([85, 721, 1440]) Output Shape:  torch.Size([69, 721, 1440])
+Memory before Lightning Module: 51.01 GB
+====================================================================================================
+Layer (type:depth-idx)                             Output Shape              Param #
+====================================================================================================
+GFSUnbiaser                                        [1, 69, 721, 1440]        --
+├─Encoder: 1-1                                     [1, 256, 180, 360]        --
+│    └─ModuleList: 2-3                             --                        (recursive)
+│    │    └─Conv2DBlock: 3-1                       [1, 128, 721, 1440]       265,891,584
+│    └─MaxPool2d: 2-2                              [1, 128, 360, 720]        --
+│    └─ModuleList: 2-3                             --                        (recursive)
+│    │    └─Conv2DBlock: 3-2                       [1, 256, 360, 720]        133,021,952
+│    └─MaxPool2d: 2-4                              [1, 256, 180, 360]        --
+├─Decoder: 1-2                                     [1, 128, 721, 1440]       --
+│    └─ModuleList: 2-7                             --                        (recursive)
+│    │    └─ConvTranspose2d: 3-3                   [1, 256, 360, 720]        262,400
+│    └─ModuleList: 2-8                             --                        (recursive)
+│    │    └─Conv2DBlock: 3-4                       [1, 128, 360, 720]        66,654,336
+│    └─ModuleList: 2-7                             --                        (recursive)
+│    │    └─ConvTranspose2d: 3-5                   [1, 128, 720, 1440]       65,664
+│    └─ModuleList: 2-8                             --                        (recursive)
+│    │    └─Conv2DBlock: 3-6                       [1, 128, 721, 1440]       265,941,120
+├─Conv2d: 1-3                                      [1, 69, 721, 1440]        8,901
+====================================================================================================
+Total params: 731,845,957
+Trainable params: 731,845,957
+Non-trainable params: 0
+Total mult-adds (Units.GIGABYTES): 554.07
+====================================================================================================
+Input size (MB): 353.00
+Forward/backward pass size (MB): 8010.79
+Params size (MB): 2927.38
+Estimated Total Size (MB): 11291.18
+====================================================================================================
+Memory after Lightning Module: 48.07 GB
+Starting Training...
+Memory after Preparing Data: 48.07 GB
+Memory after Data Setup: 48.07 GB
+┏━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
+┃   ┃ Name     ┃ Type        ┃ Params ┃ Mode  ┃
+┡━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━┩
+│ 0 │ model    │ GFSUnbiaser │  731 M │ train │
+│ 1 │ loss_fxn │ Loss        │      0 │ train │
+└───┴──────────┴─────────────┴────────┴───────┘
+Trainable params: 731 M                                                         
+Non-trainable params: 0                                                         
+Total params: 731 M                                                             
+Total estimated model params size (MB): 2.9 K                                   
+Modules in train mode: 60                                                       
+Modules in eval mode: 0                                                         
+`Trainer.fit` stopped: `max_epochs=10` reached.
+Epoch 9/9  ━━━━━━━━━━━━━━━━ 108/108 0:12:11 • 0:00:00 0.17it/s v_num: 61.000    
+                                                               train_loss_step: 
+                                                               0.482 val_loss:  
+                                                               0.484            
+                                                               train_loss_epoch:
+                                                               0.486            

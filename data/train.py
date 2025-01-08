@@ -9,6 +9,7 @@
 8. Visualize GFS, ERA5, and predictions
 '''
 import os
+import re
 import yaml
 from argparse import ArgumentParser
 import torch
@@ -44,6 +45,7 @@ def download_process_data(config):
     surface_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_surface.nc"
     atmos_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_atmospheric.nc"
 
+    # GFS can already download a defined time range
     if not os.path.exists(gfs_path):
         # Download GFS data if it is not already downloaded
         download_gfs(config['data']['gfs'])
@@ -54,7 +56,7 @@ def download_process_data(config):
     else:
         print("Processed GFS Data for this time range found")
 
-
+    # TODO: update ERA5 to download data for a defined time range
     if not os.path.exists(static_path) or not os.path.exists(surface_path) or not os.path.exists(atmos_path):
         static_path, surface_path, atmos_path = download_era5(config['data']['era5'])
     else:
@@ -66,8 +68,12 @@ def main():
 
     parser.add_argument('yaml_file', help = 'YAML file with data & training guidelines.')
     parser.add_argument("-v", "--visualize", action = "store_true", help = "Visualize predictions")
+    parser.add_argument("-d", "--data", action = "store_true", help = "Only download the data, do not commence training.")
+    parser.add_argument("-i", "--inference", action = "store_true", help = "Only download the data, do not commence training.")
 
     args = parser.parse_args()
+    data_only = args.data
+    inference_only = args.inference
 
     with open(args.yaml_file, 'r') as file:
         config = yaml.safe_load(file)
@@ -77,6 +83,8 @@ def main():
     batch_size = config['inference']['batch_size']
     debug_data = config['inference']['debug_data']
     debug_model = config['inference']['debug_model']
+    max_epochs = config['inference']['max_epochs']
+    save_path = config['inference']['save_path']
 
     if not os.path.exists(checkpoint_save_path):
         os.makedirs(checkpoint_save_path)
@@ -109,6 +117,9 @@ def main():
     print("Input Channels: ", input_channels, "Output Channels: ", output_channels)
     print("Input Shape: ", dm.input_shape, "Output Shape: ", dm.output_shape)
 
+    if data_only:
+        exit()
+
     # print("\nIndex to Variables:")
     # print(dm.idx_to_variable)
 
@@ -137,19 +148,39 @@ def main():
 
     tensorboard_logger = TensorBoardLogger(logs_save_path, name="gfs_converter_unet")
 
-    # Instantiate Trainer
-    trainer = pl.Trainer(
-        accelerator="gpu",
-        devices=1,
-        max_epochs=2,
-        callbacks=[early_stop_callback, checkpoint_callback, progress_callback],
-        logger=tensorboard_logger,
-        log_every_n_steps=5,
-    )
+    if inference_only:
+        # Determine which checkpoint had lowest validation loss
+        # Iterate through files in the save path
+        files = os.listdir(checkpoint_save_path)
 
-    print("Starting Training...")
+        # Find the file with the lowest validation loss
+        best_file = min(files, key=lambda f: float(re.findall(r'\d+\.\d+|\d+', f)[1]))
 
-    trainer.fit(model=model, datamodule=dm)
+        # Checkpoint callback will not have any information
+        best_model = model.load_from_checkpoint(
+            os.path.join(save_path, best_file),
+            strict=True
+        )
+
+    else:
+        # Instantiate Trainer
+        trainer = pl.Trainer(
+            accelerator="gpu",
+            devices=1,
+            max_epochs=max_epochs,
+            callbacks=[early_stop_callback, checkpoint_callback, progress_callback],
+            logger=tensorboard_logger,
+            log_every_n_steps=5,
+        )
+
+        print("Starting Training...")
+
+        trainer.fit(model=model, datamodule=dm)
+
+        best_model = trainer.model
+
+
+    # Use the best model to make inferences and compare to the ground truth
 
 
 if __name__ == '__main__':

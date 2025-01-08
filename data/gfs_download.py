@@ -312,6 +312,8 @@ def process_gfs(config):
     start_date = config['time']['start']
     end_date = config['time']['end']
 
+    add_derived_gfs_fields = config['add_derived_gfs_fields']
+
     if not data_path.exists():
         raise FileNotFoundError(f"Directory does not exist: {data_path}")
     
@@ -356,8 +358,10 @@ def process_gfs(config):
 
 
     # Calculate derived variables
-    print("Calculating derived variables...")
-    ds, varList = derived_gfs_fields(ds, varList)
+    if add_derived_gfs_fields:
+        print("Calculating derived variables...")
+        ds, varList = derived_gfs_fields(ds, varList)
+
     ds = ds.rename({"isobaricInhPa": "level"})
 
     save_path = os.path.join(data_path, f"gfs_{start_date}_{end_date}.nc")

@@ -57,22 +57,22 @@ def download_era5(configs):
     SURFACE_VARIABLES = configs['surface_variables']
     ATMO_VARIABLES = configs['atmo_variables']
     PRESSURES = configs['pressures']
-    TIMES = configs['times']
+    time_interval = configs['time_interval']
     YEAR = configs['year']
     MONTH = configs['month']
-    DAYS = configs['days']
+    start_day, end_day = configs['days'] # inclusive or exclusive?
 
     # Static variables only need one time step
     # Surface & Atmospheric Variables must be at every time step
     # NOTE: in order to make a prediction, Aurora needs [t-1, t] to predict [t+1]
 
     static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}_raw.nc"
-    surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface_raw.nc"
-    atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric_raw.nc"
+    surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{start_day:02d}-{end_day:02d}_surface_raw.nc"
+    atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{start_day:02d}-{end_day:02d}_atmospheric_raw.nc"
 
     processed_static_path = f"{DOWNLOAD_PATH}/static_{STATIC_TAG}.nc"
-    processed_surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_surface.nc"
-    processed_atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{DAYS[0]:02d}-{DAYS[-1]:02d}_atmospheric.nc"
+    processed_surface_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{start_day:02d}-{end_day:02d}_surface.nc"
+    processed_atmos_path = f"{DOWNLOAD_PATH}/{YEAR}_{MONTH:02d}_{start_day:02d}-{end_day:02d}_atmospheric.nc"
 
     # Check if all necessary data already exists
     if os.path.exists(processed_static_path) and \
@@ -110,8 +110,8 @@ def download_era5(configs):
                 "variable": [v for v in SURFACE_VARIABLES],
                 "year": str(YEAR),
                 "month": str(MONTH),
-                "day": [str(d).zfill(2) for d in DAYS],
-                "time": [f"{h:02d}:00" for h in TIMES],
+                "day": [str(d).zfill(2) for d in range(start_day, end_day + 1)],
+                "time": [f"{h:02d}:00" for h in range(0, 24, time_interval)],
                 "format": "netcdf",
             },
             str(surface_path),
@@ -129,8 +129,8 @@ def download_era5(configs):
                 "pressure_level": [str(x) for x in PRESSURES],
                 "year": str(YEAR),
                 "month": str(MONTH),
-                "day": [str(d).zfill(2) for d in DAYS],
-                "time": [f"{h:02d}:00" for h in TIMES],
+                "day": [str(d).zfill(2) for d in range(start_day, end_day + 1)],
+                "time": [f"{h:02d}:00" for h in range(0, 24, time_interval)],
                 "format": "netcdf",
             },
             str(atmos_path),

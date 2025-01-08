@@ -1,0 +1,47 @@
+# GFS Unbiaser UNet Configs
+
+- `data`
+    - `era5`
+        - `download_path (str)`: path from pwd to download data
+        - `static_variables (list[str])`: list of static variables to download
+        - `static_tag (str)`: tag tp add to file containing static variables 
+        - `surface_variables (list[str])`: list of surface variables to download
+        - `atmo_variables (list[str])`: list of atmospheric variables to download
+        - `pressures (list[int])`: list of pressure levels to download atmospheric variables for
+        - `time_interval (int)`: time step in hours for interval [0, 23]
+        - `year (int)`: year to download data for
+        - `month (int)`: month to download data for
+        - `days (list[int])`: days to download data for [start, end], inclusive
+    - `gfs`
+        - `atmo (list[str])`: all atmospheric pressure levels
+        - `all_levels (list(str))`: all pressure levels including surface
+        - `time`
+            - `start (str)`: start time in format `YYYYMMDDHH`
+            - `end (str)`: end time in format `YYYYMMDDHH`
+            - `interval (int)`: time step in hours for interval [0, 23]. Note that this is for the GFS Initial Conditions, NOT the forecast
+            - `forecast_start (int)`: forecast start time in hours. Note that this if for the GFS Forecast, NOT the ICs
+            - `forecast_end (int)`: forecast end time in hours. Note that this if for the GFS Forecast, NOT the ICs
+            - `forecast_interval (int)`: forecast time step in hours. Note that this if for the GFS Forecast, NOT the ICs
+        - `archive (str)`: path to store processed GFS data from the pwd
+        - `variables`:
+            - `TMP`: levels to download Temperature (K)
+            - `URGD`: levels to download U-Component of Wind (m/s) 
+            - `VGRD`: levels to download V-Component of Wind (m/s)
+            - `RH`: levels to download Relative Humidity (%)
+            - `SPFH`: levels to download Specific Humidity (kg/kg)
+            - `MSLET`: mean sea level pressure (Pa), only at 'mean sea level'
+            - `SOYTP`: soil type, only at 'surface'
+            - `HGT`: levels to download geopotential height (m)
+            - `LAND`: land-sea mask, only at 'surface'
+    - `inference`:
+        - `model (str)`: name of model to use, e.g. "microsoft/aurora"
+        - `checkpoint (str)`: name of checkpoint to use, e.g. "aurora-0.25-pretrained.ckpt"
+        - `use_lora (bool)`: whether to use LoRA
+        - `steps (int)`: number of steps to run inference for
+        - `variable (str)`: variable to generate outputs for
+        - `save_path (str)`: path to save outputs to
+        - `logs_path (str)`: path to save logs to
+        - `feature_dims (list[int])`: list of feature dimensions to use in the GFS Unbiaser UNet, e.g. [256, 512]
+        - `batch_size (int)`: batch size to use in the GFS Unbiaser UNet
+        - `debug_data (bool)`: whether to use debug data loading modules in the GFS Unbiaser UNet
+        - `debug_model (bool)`: whether to use debug model modules in the GFS Unbiaser UNet

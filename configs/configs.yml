@@ -7,11 +7,12 @@ data:
     surface_variables: ["10m_u_component_of_wind", "10m_v_component_of_wind", "2m_temperature", "mean_sea_level_pressure"]
     atmo_variables: ["temperature", "u_component_of_wind", "v_component_of_wind", "specific_humidity", "geopotential"]
     pressures: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
-    times: [0, 6, 12, 18]
+    time_interval: 6
     year: 2023
     month: 1
-    days: [1, 2, 3, 4, 5, 6, 7, 8]
+    days: [1, 31]
   gfs:
+    add_derived_gfs_fields: false
     atmo: &atmo_levels
       - '50 mb'
       - '100 mb'
@@ -43,7 +44,7 @@ data:
       - 'surface'
     time:
       start: 2023010100
-      end: 2023010800
+      end: 2023013100
       interval: 6
       forecast_start: 0
       forecast_end: 0
@@ -70,7 +71,8 @@ inference:
   variable: "msl"
   save_path: "gfs_converter_ckpt"
   logs_path: "gfs_converter_logs"
-  feature_dims: [256, 512]
+  feature_dims: [128, 256]
   batch_size: 1
   debug_data: false
   debug_model: false
+  max_epochs: 10
