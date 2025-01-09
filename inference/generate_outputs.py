@@ -439,7 +439,6 @@ def visualize_tensor(tensor, channel, channel_mapper, output_path="", format='mp
     # generate_mp4(images, output_file, format=format, fps=fps)
 
 
-
 def generate_mp4(images, output_path, fps=6, format='mp4'):
     # Read first image to get dimensions
     frame = cv2.imread(images[0])
@@ -469,6 +468,17 @@ def generate_mp4(images, output_path, fps=6, format='mp4'):
     for i in images:
         os.remove(i)
 
+
+def compare_all_tensors(gfs_tensor, era_tensor, output_tensor,
+                         channel, channel_mapper, output_path="",
+                           format='mp4', fps=6):
+    # The GFS data has 85 channels
+    # ERA5 & the model output data has 69 channels that are aligned
+
+    # What are the channels in the GFS data?
+
+
+    pass
 
     
 

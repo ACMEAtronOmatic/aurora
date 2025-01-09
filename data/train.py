@@ -11,8 +11,9 @@
 import os
 import re
 import yaml
+
 from argparse import ArgumentParser
-import torch
+import numpy as np
 
 from data.utils import print_debug, check_gpu_memory
 from data.era5_download import download_era5, make_batch
@@ -20,6 +21,9 @@ from data.gfs_download import download_gfs, process_gfs
 from data.dataloader import GFSDataModule
 from data.model import LightningGFSUnbiaser
 
+from inference.generate_outputs import visualize_tensor
+
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, RichProgressBar
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -136,8 +140,9 @@ def main():
         # TODO: problems loading the model???
         best_model = LightningGFSUnbiaser.load_from_checkpoint(
             os.path.join(save_path, best_file),
+            device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
             in_channels=input_channels, out_channels=output_channels, 
-            channel_mapper=dm.idx_to_variable, samples=batch_size, 
+            channel_mapper=dm.era_idx_to_variable, samples=batch_size, 
             height=h, width=w, double=False, feature_dims=feature_dims,
             use_se=True, r=8, debug=debug_model
         )
@@ -194,7 +199,27 @@ def main():
     test_data = dm.test_dataloader()
 
     for i, batch in enumerate(test_data):
+
+        # NOTE:
+        # Input: GFS data
+        # Truth: ERA5 data
+        # Model Prediction: GFS data unbiased to resemble ERA5 data
+
+        input, truth = batch
+
         print(f"Batch {i}")
+        print(f"\tInput: {type(input)}, {input.shape}")
+        print(f"\tTruth: {type(truth)}, {truth.shape}")
+
+        # Make predictions
+        input = input.to(best_model.device) # TODO: ensure all data and the model are on GPU
+        pred = best_model(input)
+
+        print(f"\tPred: {type(pred)}, {pred.shape}")
+
+        # Use these three tensors to make comparison plots
+        
+
 
 
 if __name__ == '__main__':

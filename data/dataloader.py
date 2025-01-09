@@ -75,37 +75,60 @@ class GFSDataset(torch.utils.data.Dataset):
         self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")
 
         # Get levels and number of channels for the atmos dataset, channels from the surface dataset
-        self.atmos_levels = list(self.era_atmos.level.values)
-        self.atmos_levels = [int(level) for level in self.atmos_levels]
-        self.atmos_channels = list(self.era_atmos.data_vars.keys())
-        self.surface_channels = list(self.era_surface.data_vars.keys())
+        self.era_atmos_levels = list(self.era_atmos.level.values)
+        self.era_atmos_levels = [int(level) for level in self.era_atmos_levels]
+        self.era_atmos_channels = list(self.era_atmos.data_vars.keys())
+        self.era_surface_channels = list(self.era_surface.data_vars.keys())
 
-        print_debug(self.debug, "ERA Surface Channels: ", self.surface_channels)
-        print_debug(self.debug, "ERA Atmos Channels: ", self.atmos_channels)
-        print_debug(self.debug, "ERA Atmos Levels: ", self.atmos_levels)
+        self.gfs_atmos_levels = list(self.gfs.level.values)
+        self.gfs_atmos_levels = [int(level) for level in self.gfs_atmos_levels]
+
+        # GFS surface and atmospheric channels will be together, we need to extract them
+        # Extract land variables
+        self.gfs_surface = self.gfs[GFS_LAND_CHANNELS].isel(time=0)
+        self.gfs_surface_channels = list(self.gfs_surface.keys())
+        self.gfs_atmos = self.gfs.drop_vars(GFS_LAND_CHANNELS)
+        self.gfs_atmos_channels = list(self.gfs_atmos.keys())
+
+        print_debug(self.debug, "ERA Surface Channels: ", self.era_surface_channels)
+        print_debug(self.debug, "ERA Atmos Channels: ", self.era_atmos_channels)
+        print_debug(self.debug, "ERA Atmos Levels: ", self.era_atmos_levels)
+
+        print_debug(self.debug, "GFS Atmos Channels: ", self.gfs_atmos_channels)
+        print_debug(self.debug, "GFS Atmos Levels: ", self.gfs_atmos_levels)
+        print_debug(self.debug, "GFS Surface Channels: ", self.gfs_surface_channels)
 
         # Print some info about the datasets
-        print_debug(self.debug, "GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
-        print_debug(self.debug, "GFS Variables: ", self.gfs.data_vars.keys())
-        print_debug(self.debug, "ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
-        print_debug(self.debug, "ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
-        print_debug(self.debug, "ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
-        print_debug(self.debug, "ERA Statics Variables: ", era_static.data_vars.keys())
-        print_debug(self.debug, "ERA Surface Variables: ", self.era_surface.data_vars.keys())
-        print_debug(self.debug, "ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
+        # print_debug(self.debug, "GFS Shape: ", {dim: self.gfs.sizes[dim] for dim in self.gfs.dims})
+        # print_debug(self.debug, "GFS Variables: ", self.gfs.data_vars.keys())
+        # print_debug(self.debug, "ERA Statics Shape: ", {dim: era_static.sizes[dim] for dim in era_static.dims})
+        # print_debug(self.debug, "ERA Surface Shape: ", {dim: self.era_surface.sizes[dim] for dim in self.era_surface.dims})
+        # print_debug(self.debug, "ERA Atmos Shape: ", {dim: self.era_atmos.sizes[dim] for dim in self.era_atmos.dims})
+        # print_debug(self.debug, "ERA Statics Variables: ", era_static.data_vars.keys())
+        # print_debug(self.debug, "ERA Surface Variables: ", self.era_surface.data_vars.keys())
+        # print_debug(self.debug, "ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
 
-    def idx_to_variable(self, tensor_idx):
+    def gfs_idx_to_variable(self, tensor_idx):
+        # Return the variable and level based off the channel index in the tensor
+        # 4 land variables, 6 atmos variables, 13 levels
+
+
+        pass
+
+    def era_idx_to_variable(self, tensor_idx):
         # Example: idx 9, channel 2, level 1 of 3 channels, 4 levels
         # To get channel 2 from idx 9: 9//4 == 2
         # To get level 1 from idx 9: 9%4 == 1
-        surface_len = len(self.surface_channels)
+        surface_len = len(self.era_surface_channels)
 
         # NOTE: starts with surface, then has atmos
         if tensor_idx >= surface_len:
+            # Subtracting number of surface channels
+            # Since their information is stored in separate tensors
             tensor_idx -= surface_len
-            return self.atmos_channels[tensor_idx//len(self.atmos_levels)], self.atmos_levels[tensor_idx%len(self.atmos_levels)]
+            return self.era_atmos_channels[tensor_idx//len(self.era_atmos_levels)], self.era_atmos_levels[tensor_idx%len(self.era_atmos_levels)]
         else:
-            return self.surface_channels[tensor_idx], 'surface'
+            return self.era_surface_channels[tensor_idx], 'surface'
 
     def __len__(self):
         return len(self.times)
@@ -114,7 +137,7 @@ class GFSDataset(torch.utils.data.Dataset):
         # Return data at all levels and all variables
         # Assume that time steps across ERA and GFS are aligned
 
-        gfs_slice = self.gfs.isel(time=index)
+        gfs_slice = self.gfs_atmos.isel(time=index)
 
         # Print the order of the variables in gfs slice
         for i, var in enumerate(gfs_slice.data_vars.keys()):
@@ -123,10 +146,6 @@ class GFSDataset(torch.utils.data.Dataset):
         # Print order of levels in the gfs slice
         for i, level in enumerate(gfs_slice.level.values):
             print_debug(self.debug, f"GFS Level {i}: {level}")
-
-        # Extract land variables before converting to gfs tensor
-        gfs_land = gfs_slice[GFS_LAND_CHANNELS]
-        gfs_slice = gfs_slice.drop_vars(GFS_LAND_CHANNELS)
 
         # Print the order of the variables in gfs slice
         print_debug(self.debug, "After Extracting Land Variables:")
@@ -141,7 +160,7 @@ class GFSDataset(torch.utils.data.Dataset):
                                      gfs_tensor.shape[2], gfs_tensor.shape[3])
         
         # Now add the land variables
-        gfs_tensor = torch.cat((gfs_tensor, torch.from_numpy(gfs_land.to_array().values).to(dtype=torch.float32)), dim=0)
+        gfs_tensor = torch.cat((gfs_tensor, torch.from_numpy(self.gfs_surface.to_array().values).to(dtype=torch.float32)), dim=0)
 
         print_debug(self.debug, "GFS Tensor Shape: ", gfs_tensor.shape)
         print_debug(self.debug, "ERA Statics Tensor Shape: ", self.era_static_tensor.shape)
@@ -170,8 +189,6 @@ class GFSDataset(torch.utils.data.Dataset):
         for i, level in enumerate(era_atmos_slice.level.values):
             print_debug(self.debug, f"ERA Atmos Level {i}: {level}")
 
-        # TODO: remove
-        # exit(0)
 
         # Surface: [channel, lat, lon]
         era_surface_tensor = torch.from_numpy(era_surface_slice.to_array().values).to(dtype=torch.float32)
@@ -190,8 +207,6 @@ class GFSDataset(torch.utils.data.Dataset):
         print_debug(self.debug, "ERA Surface Tensor Shape: ", era_surface_tensor.shape)
         print_debug(self.debug, "ERA Atmos Tensor Shape: ", era_atmos_tensor.shape)
 
-        # Repeat surface tensor for each level
-        # NOTE: not needed if combining channel and level dimensions
         truth_tensor = torch.cat((era_surface_tensor, era_atmos_tensor), dim=0)
 
         self.output_shape = truth_tensor.shape
@@ -268,9 +283,9 @@ class GFSDataModule(pl.LightningDataModule):
         self.val_dataset = val_dataset
 
         # Create a dictionary of indices to era variables
-        self.idx_to_variable = {}
+        self.era_idx_to_variable = {}
         for i in range(gfs_dataset.output_shape[0]):
-            self.idx_to_variable[i] = gfs_dataset.idx_to_variable(i)
+            self.era_idx_to_variable[i] = gfs_dataset.era_idx_to_variable(i)
 
         print(f"Memory after Data Setup: {check_gpu_memory():.2f} GB")
 

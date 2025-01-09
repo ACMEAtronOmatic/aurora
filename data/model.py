@@ -69,6 +69,7 @@ class Loss(nn.Module):
 
             for c in range(channels):
                 # Get the associated variable
+                # Using the GFS channel mapper to get the variable and 
                 var, level = self.channel_mapper[c]
                 min_val = ERA5_GLOBAL_RANGES[var]['min']
                 max_val = ERA5_GLOBAL_RANGES[var]['max']
