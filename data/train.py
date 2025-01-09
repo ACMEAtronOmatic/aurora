@@ -120,49 +120,57 @@ def main():
     if data_only:
         exit()
 
-    # print("\nIndex to Variables:")
-    # print(dm.idx_to_variable)
 
     # # Instantiate Lightning module
     print(f"Memory before Lightning Module: {check_gpu_memory():.2f} GB")
-    model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, 
-                                 channel_mapper=dm.idx_to_variable, samples=batch_size, 
-                                  height=h, width=w, double=False, feature_dims=feature_dims,
-                                   use_se=True, r=8, debug=debug_model)
-    print(f"Memory after Lightning Module: {check_gpu_memory():.2f} GB")
-
-    # Instantiate Callbacks & Loggers
-    early_stop_callback = EarlyStopping(
-        monitor="val_loss", patience=2, verbose=False, mode="min"
-    )
-
-    checkpoint_callback = ModelCheckpoint(
-        save_top_k=1,
-        monitor="val_loss",
-        mode="min",
-        dirpath=checkpoint_save_path,
-        filename="gfs_converter-epoch-{epoch:02d}-val_loss-{val_loss:.2f}",
-    )
-
-    progress_callback = RichProgressBar()
-
-    tensorboard_logger = TensorBoardLogger(logs_save_path, name="gfs_converter_unet")
-
+    
     if inference_only:
         # Determine which checkpoint had lowest validation loss
         # Iterate through files in the save path
         files = os.listdir(checkpoint_save_path)
 
         # Find the file with the lowest validation loss
-        best_file = min(files, key=lambda f: float(re.findall(r'\d+\.\d+|\d+', f)[1]))
+        best_file = min(files, key=lambda f: float(re.findall(r'\d+\.\d+|\d+', f)[1]) if len(re.findall(r'\d+\.\d+|\d+', f)) > 1 else float('inf'))
 
         # Checkpoint callback will not have any information
-        best_model = model.load_from_checkpoint(
+        # TODO: problems loading the model???
+        best_model = LightningGFSUnbiaser.load_from_checkpoint(
             os.path.join(save_path, best_file),
-            strict=True
+            in_channels=input_channels, out_channels=output_channels, 
+            channel_mapper=dm.idx_to_variable, samples=batch_size, 
+            height=h, width=w, double=False, feature_dims=feature_dims,
+            use_se=True, r=8, debug=debug_model
         )
 
+        best_model.eval()
+
     else:
+
+        model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, 
+                                    channel_mapper=dm.idx_to_variable, samples=batch_size, 
+                                    height=h, width=w, double=False, feature_dims=feature_dims,
+                                    use_se=True, r=8, debug=debug_model)
+        print(f"Memory after Lightning Module: {check_gpu_memory():.2f} GB")
+
+        # Instantiate Callbacks & Loggers
+        early_stop_callback = EarlyStopping(
+            monitor="val_loss", patience=2, verbose=False, mode="min"
+        )
+
+        checkpoint_callback = ModelCheckpoint(
+            save_top_k=1,
+            monitor="val_loss",
+            mode="min",
+            dirpath=checkpoint_save_path,
+            filename="gfs_converter-epoch-{epoch:02d}-val_loss-{val_loss:.2f}",
+        )
+
+        progress_callback = RichProgressBar(leave=True)
+
+        tensorboard_logger = TensorBoardLogger(logs_save_path, name="gfs_converter_unet")
+
+        print_debug(debug_model, "Model Summary:")
+
         # Instantiate Trainer
         trainer = pl.Trainer(
             accelerator="gpu",
@@ -179,8 +187,14 @@ def main():
 
         best_model = trainer.model
 
+        best_model.eval()
+
 
     # Use the best model to make inferences and compare to the ground truth
+    test_data = dm.test_dataloader()
+
+    for i, batch in enumerate(test_data):
+        print(f"Batch {i}")
 
 
 if __name__ == '__main__':

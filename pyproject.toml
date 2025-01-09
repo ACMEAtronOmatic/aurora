@@ -69,6 +69,7 @@ myradar = [
     "pytorch-msssim", 
     "rich",
     "tensorboardX", 
+    "tensorboard",
     "torchinfo",
 ]
 

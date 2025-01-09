@@ -391,6 +391,7 @@ class LightningGFSUnbiaser(pl.LightningModule):
                   feature_dims=[64, 128, 256, 512],
                    use_se=True, r=8, double=False, debug=False):
         super().__init__()
+        self.save_hyperparameters()
 
         if len(channel_mapper) != out_channels:
             raise ValueError(f"Length of channel mapper must be equal to number of output channels. Got {len(self.channel_mapper)} vs {out_channels}")
