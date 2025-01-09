@@ -21,7 +21,7 @@ from data.gfs_download import download_gfs, process_gfs
 from data.dataloader import GFSDataModule
 from data.model import LightningGFSUnbiaser
 
-from inference.generate_outputs import visualize_tensor
+from inference.generate_outputs import compare_all_tensors
 
 import torch
 import pytorch_lightning as pl
@@ -194,33 +194,53 @@ def main():
 
         best_model.eval()
 
+    with torch.inference_mode():
+        # Use the best model to make inferences and compare to the ground truth
+        test_data = dm.test_dataloader()
 
-    # Use the best model to make inferences and compare to the ground truth
-    test_data = dm.test_dataloader()
+        # Generate all required mapping dictionaries
+        era_idx_to_variable = dm.era_idx_to_variable
+        gfs_idx_to_variable = dm.gfs_idx_to_variable
+        era_variable_to_idx = {v: k for k, v in era_idx_to_variable.items()}
+        gfs_variable_to_idx = {v: k for k, v in gfs_idx_to_variable.items()}
 
-    for i, batch in enumerate(test_data):
+        for i, batch in enumerate(test_data):
 
-        # NOTE:
-        # Input: GFS data
-        # Truth: ERA5 data
-        # Model Prediction: GFS data unbiased to resemble ERA5 data
+            # NOTE:
+            # Input: GFS data
+            # Truth: ERA5 data
+            # Model Prediction: GFS data unbiased to resemble ERA5 data
 
-        input, truth = batch
+            input, truth = batch
 
-        print(f"Batch {i}")
-        print(f"\tInput: {type(input)}, {input.shape}")
-        print(f"\tTruth: {type(truth)}, {truth.shape}")
+            print(f"Batch {i}")
+            print(f"\tInput: {type(input)}, {input.shape}")
+            print(f"\tTruth: {type(truth)}, {truth.shape}")
 
-        # Make predictions
-        input = input.to(best_model.device) # TODO: ensure all data and the model are on GPU
-        pred = best_model(input)
+            # Make predictions
+            input = input.to(best_model.device) # TODO: ensure all data and the model are on GPU
+            pred = best_model(input)
 
-        print(f"\tPred: {type(pred)}, {pred.shape}")
+            print(f"\tPred: {type(pred)}, {pred.shape}")
 
-        # Use these three tensors to make comparison plots
-        
+            # Use these three tensors to make comparison plots
+            gfs_channel = gfs_variable_to_idx[("t", 925)]
+            era_channel = era_variable_to_idx[("t", 925)]        
 
+            # Get slices
+            input_slice = input[0, gfs_channel, :, :]
+            truth_slice = truth[0, era_channel, :, :]
+            pred_slice = pred[0, era_channel, :, :]
 
+            print(f"\tInput Slice: {type(input_slice)}, {input_slice.shape}")
+            print(f"\tTruth Slice: {type(truth_slice)}, {truth_slice.shape}")
+            print(f"\tPred Slice: {type(pred_slice)}, {pred_slice.shape}")
+
+            # Use these tensors to generate visualizations
+            compare_all_tensors(input_slice, truth_slice, pred_slice, i, "t", 935, 
+                                output_path="testing_viz")
+
+            
 
 if __name__ == '__main__':
     main()

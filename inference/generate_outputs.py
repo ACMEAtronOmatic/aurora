@@ -470,16 +470,69 @@ def generate_mp4(images, output_path, fps=6, format='mp4'):
 
 
 def compare_all_tensors(gfs_tensor, era_tensor, output_tensor,
-                         channel, channel_mapper, output_path="",
+                         channel, variable, level, output_path="",
                            format='mp4', fps=6):
     # The GFS data has 85 channels
     # ERA5 & the model output data has 69 channels that are aligned
 
-    # What are the channels in the GFS data?
+    crs = ccrs.PlateCarree(central_longitude=180)   
 
+    lon = np.arange(-180, 180, 0.25)
+    lat = np.arange(-90, 90, 0.25)
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
 
-    pass
+    valid_gfs = torch.where(torch.isnan(gfs_tensor), torch.tensor(0, device=gfs_tensor.device), gfs_tensor).cpu().numpy()
+    valid_era = torch.where(torch.isnan(era_tensor), torch.tensor(0, device=era_tensor.device), era_tensor).cpu().numpy()
+    valid_output = torch.where(torch.isnan(output_tensor), torch.tensor(0, device=output_tensor.device), output_tensor).cpu().numpy()
 
+    min = np.amin(valid_gfs)
+    max = np.amax(valid_gfs)
+    med = np.median(valid_gfs)
+    print("Tensor Range: ", min, max)
+
+    fig = plt.figure(figsize=(12, 6))
+
+    # Display three plots horizontally
+    ax1 = fig.add_subplot(1, 3, 1, projection=crs)
+    ax2 = fig.add_subplot(1, 3, 2, projection=crs)
+    ax3 = fig.add_subplot(1, 3, 3, projection=crs)
+    # Create a numpy array from this slice?
+
+    im1 = ax1.imshow(valid_gfs, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+    im2 = ax2.imshow(valid_era, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+    im3 = ax3.imshow(valid_output, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+
+    ax1.coastlines(linewidth=0.7)
+    ax2.coastlines(linewidth=0.7)
+    ax3.coastlines(linewidth=0.7)
+    ax1.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax2.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax3.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+
+    fig.suptitle(f"C{channel}-{variable}-{level}")
+
+    ax1.set_title("GFS")
+    ax2.set_title("ERA5")
+    ax3.set_title("Model Output")
+
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+    ax3.set_xticks([])
+    ax3.set_yticks([])
+
+    cbar = plt.colorbar(im3, ax=ax3, shrink=0.6)
+    cbar.set_label(variable)
+    cbar.set_ticks([min, med, max])
+
+    plt.tight_layout()
+    
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    name = os.path.join(output_path, f"C{channel}-{variable}-{level}")
+    plt.savefig(name, bbox_inches='tight')
     
 
 if __name__ == "__main__":

@@ -111,9 +111,22 @@ class GFSDataset(torch.utils.data.Dataset):
     def gfs_idx_to_variable(self, tensor_idx):
         # Return the variable and level based off the channel index in the tensor
         # 4 land variables, 6 atmos variables, 13 levels
+        surface_len = len(self.gfs_surface_channels)
+        atmo_len = (len(self.gfs_atmos_channels) * len(self.gfs_atmos_levels))
 
-
-        pass
+        # NOTE: starts with atmos, ends with surface
+        if tensor_idx < atmo_len:
+            # Directly index
+            return self.gfs_atmos_channels[tensor_idx//len(self.gfs_atmos_levels)], self.gfs_atmos_levels[tensor_idx%len(self.gfs_atmos_levels)]
+        
+        elif atmo_len <= tensor_idx < atmo_len + surface_len:
+            # Surface
+            tensor_idx -= atmo_len
+            return self.gfs_surface_channels[tensor_idx], 'surface'
+        
+        else:
+            # It is one of the ERA5 static variables
+            return self.era_static_tensor[tensor_idx - atmo_len - surface_len], 'surface'
 
     def era_idx_to_variable(self, tensor_idx):
         # Example: idx 9, channel 2, level 1 of 3 channels, 4 levels
@@ -158,6 +171,8 @@ class GFSDataset(torch.utils.data.Dataset):
         # Need to combine channel and level dimensions: [channel*level, lat, lon]
         gfs_tensor = gfs_tensor.view(gfs_tensor.shape[0]*gfs_tensor.shape[1],
                                      gfs_tensor.shape[2], gfs_tensor.shape[3])
+        
+        print_debug(self.debug, "GFS Tensor Shape before Surface: ", gfs_tensor.shape)
         
         # Now add the land variables
         gfs_tensor = torch.cat((gfs_tensor, torch.from_numpy(self.gfs_surface.to_array().values).to(dtype=torch.float32)), dim=0)
@@ -286,6 +301,11 @@ class GFSDataModule(pl.LightningDataModule):
         self.era_idx_to_variable = {}
         for i in range(gfs_dataset.output_shape[0]):
             self.era_idx_to_variable[i] = gfs_dataset.era_idx_to_variable(i)
+
+        self.gfs_idx_to_variable = {}
+        print("GFS Size: ", gfs_dataset.input_shape[0])
+        for i in range(gfs_dataset.input_shape[0]):
+            self.gfs_idx_to_variable[i] = gfs_dataset.gfs_idx_to_variable(i)
 
         print(f"Memory after Data Setup: {check_gpu_memory():.2f} GB")
 
