@@ -68,11 +68,12 @@ inference:
   checkpoint: "aurora-0.25-pretrained.ckpt"
   use_lora: false
   steps: 28
-  variable: "msl"
   save_path: "gfs_converter_ckpt"
   logs_path: "gfs_converter_logs"
   feature_dims: [128, 256]
   batch_size: 1
   debug_data: false
   debug_model: false
-  max_epochs: 10
+  max_epochs: 25
+  variable: "u"
+  level: 500

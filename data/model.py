@@ -107,7 +107,7 @@ class Loss(nn.Module):
 
         total_loss = ssim_loss + pixel_loss
 
-        return total_loss
+        return ssim_loss, pixel_loss
 
 
 class SEAttnBlock(nn.Module):
@@ -423,13 +423,20 @@ class LightningGFSUnbiaser(pl.LightningModule):
         x, y = batch
         pred = self.forward(x)
 
-        loss = self.loss_fxn.forward(pred, y)
+        ssim_loss, pixel_loss = self.loss_fxn.forward(pred, y)
 
         if stage is not None:
-            self.log(f"{stage}_loss", loss, prog_bar=True)
+            self.log_dict({f"{stage}_ssim_loss": ssim_loss,
+                            f"{stage}_pixel_loss": pixel_loss, 
+                            f"{stage}_total_loss": ssim_loss + pixel_loss},
+                            prog_bar=True)
+        else:
+            self.log_dict({"val_ssim_loss": ssim_loss,
+                            "val_pixel_loss": pixel_loss,
+                            "val_total_loss": ssim_loss + pixel_loss},
+                            prog_bar=True)
 
-
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, stage=None):
         x, y = batch
         # Check if there are nan or inf values in the input tensor
         if torch.isnan(x).any() or torch.isinf(x).any():
@@ -441,13 +448,28 @@ class LightningGFSUnbiaser(pl.LightningModule):
         if torch.isnan(logits).any() or torch.isinf(logits).any():
             raise ValueError("Output tensor contains NaN or Inf values")
 
-        loss = self.loss_fxn.forward(logits, y)
+        ssim_loss, pixel_loss = self.loss_fxn.forward(logits, y)
 
         # Check if there are nan or inf values in the loss tensor
-        if torch.isnan(loss).any() or torch.isinf(loss).any():
-            raise ValueError("Loss tensor contains NaN or Inf values")
+        if torch.isnan(ssim_loss).any() or torch.isinf(ssim_loss).any():
+            raise ValueError("SSIM loss tensor contains NaN or Inf values")
+        
+        if torch.isnan(pixel_loss).any() or torch.isinf(pixel_loss).any():
+            raise ValueError("Pixel loss tensor contains NaN or Inf values")
 
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        loss = ssim_loss + pixel_loss
+
+        if stage is not None:
+            self.log_dict({f"{stage}_ssim_loss": ssim_loss,
+                            f"{stage}_pixel_loss": pixel_loss, 
+                            f"{stage}_total_loss": loss},
+                            prog_bar=True)
+        else:
+            self.log_dict({"train_ssim_loss": ssim_loss,
+                            "train_pixel_loss": pixel_loss, 
+                            "train_total_loss": loss},
+                            prog_bar=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):

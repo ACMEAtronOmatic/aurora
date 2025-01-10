@@ -90,6 +90,9 @@ def main():
     max_epochs = config['inference']['max_epochs']
     save_path = config['inference']['save_path']
 
+    VAR = config['inference']['variable']
+    LEVEL = config['inference']['level']
+
     if not os.path.exists(checkpoint_save_path):
         os.makedirs(checkpoint_save_path)
 
@@ -124,7 +127,6 @@ def main():
     if data_only:
         exit()
 
-
     # # Instantiate Lightning module
     print(f"Memory before Lightning Module: {check_gpu_memory():.2f} GB")
     
@@ -152,7 +154,7 @@ def main():
     else:
 
         model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, 
-                                    channel_mapper=dm.idx_to_variable, samples=batch_size, 
+                                    channel_mapper=dm.era_idx_to_variable, samples=batch_size, 
                                     height=h, width=w, double=False, feature_dims=feature_dims,
                                     use_se=True, r=8, debug=debug_model)
         print(f"Memory after Lightning Module: {check_gpu_memory():.2f} GB")
@@ -204,6 +206,10 @@ def main():
         era_variable_to_idx = {v: k for k, v in era_idx_to_variable.items()}
         gfs_variable_to_idx = {v: k for k, v in gfs_idx_to_variable.items()}
 
+        # print("GFS Keys: ", gfs_variable_to_idx.keys())
+        # print("ERA Keys: ", era_variable_to_idx.keys())
+
+
         for i, batch in enumerate(test_data):
 
             # NOTE:
@@ -224,8 +230,8 @@ def main():
             print(f"\tPred: {type(pred)}, {pred.shape}")
 
             # Use these three tensors to make comparison plots
-            gfs_channel = gfs_variable_to_idx[("t", 925)]
-            era_channel = era_variable_to_idx[("t", 925)]        
+            gfs_channel = gfs_variable_to_idx[(VAR, LEVEL)]
+            era_channel = era_variable_to_idx[(VAR, LEVEL)]        
 
             # Get slices
             input_slice = input[0, gfs_channel, :, :]
@@ -236,8 +242,18 @@ def main():
             print(f"\tTruth Slice: {type(truth_slice)}, {truth_slice.shape}")
             print(f"\tPred Slice: {type(pred_slice)}, {pred_slice.shape}")
 
+            # Mean & standard deviations of input  
+            print(f"\tInput Mean: {input_slice.mean()}")
+            print(f"\tInput Std: {input_slice.std()}")
+            # Mean & standard deviations of predictions
+            print(f"\tPred Mean: {pred_slice.mean()}")
+            print(f"\tPred Std: {pred_slice.std()}")
+            # Mean & standard deviations of truth
+            print(f"\tTruth Mean: {truth_slice.mean()}")
+            print(f"\tTruth Std: {truth_slice.std()}")
+
             # Use these tensors to generate visualizations
-            compare_all_tensors(input_slice, truth_slice, pred_slice, i, "t", 935, 
+            compare_all_tensors(input_slice, truth_slice, pred_slice, i, VAR, LEVEL, 
                                 output_path="testing_viz")
 
             

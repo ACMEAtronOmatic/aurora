@@ -522,7 +522,12 @@ def compare_all_tensors(gfs_tensor, era_tensor, output_tensor,
     ax3.set_xticks([])
     ax3.set_yticks([])
 
-    cbar = plt.colorbar(im3, ax=ax3, shrink=0.6)
+    # cbar = plt.colorbar(im3, ax=ax3, shrink=0.6)
+    # cbar.set_label(variable)
+    # cbar.set_ticks([min, med, max])
+
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.03])
+    cbar = fig.colorbar(im3, cax=cbar_ax, orientation="horizontal")
     cbar.set_label(variable)
     cbar.set_ticks([min, med, max])
 

@@ -8,6 +8,7 @@ Processed GFS Data for this time range found
 ERA5 Data for this time range found
 Memory Available before DataLoader: 51.01 GB
 Memory after Preparing Data: 51.01 GB
+GFS Size:  85
 Memory after Data Setup: 51.01 GB
 Memory Available after DataLoader: 51.01 GB
 Input Channels:  85 Output Channels:  69
@@ -48,6 +49,7 @@ Estimated Total Size (MB): 11291.18
 Memory after Lightning Module: 48.07 GB
 Starting Training...
 Memory after Preparing Data: 48.07 GB
+GFS Size:  85
 Memory after Data Setup: 48.07 GB
 ┏━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
 ┃   ┃ Name     ┃ Type        ┃ Params ┃ Mode  ┃
@@ -61,10 +63,3 @@ Total params: 731 M
 Total estimated model params size (MB): 2.9 K                                   
 Modules in train mode: 60                                                       
 Modules in eval mode: 0                                                         
-`Trainer.fit` stopped: `max_epochs=10` reached.
-Epoch 9/9  ━━━━━━━━━━━━━━━━ 108/108 0:12:11 • 0:00:00 0.17it/s v_num: 61.000    
-                                                               train_loss_step: 
-                                                               0.482 val_loss:  
-                                                               0.484            
-                                                               train_loss_epoch:
-                                                               0.486            
