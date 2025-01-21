@@ -1,11 +1,14 @@
 from aurora import Aurora, rollout
 import matplotlib.pyplot as plt
 from cartopy import crs as ccrs, feature as cfeature
+from numpy.fft import fft2, fftshift
 import cv2
 import torch
 import numpy as np
 import os
 import xarray as xr
+import pyshtools as pysh
+from scores.probability import crps_cdf
 
 def generate_outputs(model, batch, steps=28, device="cuda"):
     model.eval()
@@ -539,6 +542,68 @@ def compare_all_tensors(gfs_tensor, era_tensor, output_tensor,
     name = os.path.join(output_path, f"C{channel}-{variable}-{level}")
     plt.savefig(name, bbox_inches='tight')
     
+
+def compare_all_tensors_spectral(gfs_tensor, era_tensor, output_tensor,
+                         channel, variable, level, output_path="",
+                           format='mp4', fps=6):
+    
+    # Ensure non inf non null values
+    valid_gfs = torch.where(torch.isnan(gfs_tensor), torch.tensor(0, device=gfs_tensor.device), gfs_tensor).cpu().numpy()
+    valid_era = torch.where(torch.isnan(era_tensor), torch.tensor(0, device=era_tensor.device), era_tensor).cpu().numpy()
+    valid_output = torch.where(torch.isnan(output_tensor), torch.tensor(0, device=output_tensor.device), output_tensor).cpu().numpy()
+
+    # For Driscoll-Healy Grids, the 90 degree S latitude should not be included
+    valid_gfs = valid_gfs[:-1, :]
+    valid_era = valid_era[:-1, :]
+    valid_output = valid_output[:-1, :]
+
+    # Plot the spectrum
+    fig_spec = plt.figure(figsize=(12, 6))
+    axs = fig_spec.add_subplot(1, 1, 1)
+
+    # Use pysh to compute the power spectrum for each of these datasets
+    gfs_grid = pysh.SHGrid.from_array(valid_gfs, grid='DH')
+    era_grid = pysh.SHGrid.from_array(valid_era)
+    output_grid = pysh.SHGrid.from_array(valid_output)
+
+    gfs_coeffs = gfs_grid.expand()
+    era_coeffs = era_grid.expand()
+    output_coeffs = output_grid.expand()
+
+    gfs_coeffs.plot_spectrum(ax=axs, legend="GFS")
+    era_coeffs.plot_spectrum(ax=axs, legend="ERA")
+    output_coeffs.plot_spectrum(ax=axs, legend="Output")
+
+    fig_spec.suptitle(f"Spectrum for C{channel}-{variable}-{level} Datasets")
+    fig_spec.savefig(f"testing_viz/spectrum_{channel}_{variable}_{level}.png")
+
+    # Plot some comparison statistics
+    fig_comp = plt.figure(figsize=(18, 6))
+    ax1 = fig_comp.add_subplot(1, 3, 1)
+    ax2 = fig_comp.add_subplot(1, 3, 2)
+    ax3 = fig_comp.add_subplot(1, 3, 3)
+
+    era_coeffs.plot_cross_spectrum(output_coeffs, ax=ax1)
+    era_coeffs.plot_admittance(output_coeffs, ax=ax2)
+    era_coeffs.plot_correlation(output_coeffs, ax=ax3)
+
+    ax1.set_title("Cross Spectrum")
+    ax2.set_title("Admittance")
+    ax3.set_title("Correlation")
+
+    fig_comp.suptitle(f"Spherical Harmonics Comparisons Between Outputs v. ERA5 for C{channel}-{variable}-{level} Datasets")
+
+    fig_comp.savefig(f"testing_viz/coeffs_comparison_{channel}_{variable}_{level}.png")
+
+    # # CRPS for output and ERA5
+    # output_xr = xr.DataArray(data=valid_output)
+    # era_xr = xr.DataArray(data=valid_era)
+
+    # crps = crps_cdf(output_xr, era_xr)
+
+    # print(f"CRPS: {crps}")
+
+
 
 if __name__ == "__main__":
     from data_download import download_era5, make_batch

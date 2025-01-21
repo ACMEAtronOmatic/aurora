@@ -21,7 +21,7 @@ from data.gfs_download import download_gfs, process_gfs
 from data.dataloader import GFSDataModule
 from data.model import LightningGFSUnbiaser
 
-from inference.generate_outputs import compare_all_tensors
+from inference.generate_outputs import compare_all_tensors, compare_all_tensors_spectral
 
 import torch
 import pytorch_lightning as pl
@@ -89,6 +89,13 @@ def main():
     debug_model = config['inference']['debug_model']
     max_epochs = config['inference']['max_epochs']
     save_path = config['inference']['save_path']
+    patience = config['inference']['patience']
+
+    mse_weight = config['inference']['mse_weight']
+    mae_weight = config['inference']['mae_weight']
+    ssim_weight = config['inference']['ssim_weight']
+
+    assert mse_weight + mae_weight + ssim_weight == 1
 
     VAR = config['inference']['variable']
     LEVEL = config['inference']['level']
@@ -161,12 +168,12 @@ def main():
 
         # Instantiate Callbacks & Loggers
         early_stop_callback = EarlyStopping(
-            monitor="val_loss", patience=2, verbose=False, mode="min"
+            monitor="val_total_loss", patience=patience, verbose=False, mode="min"
         )
 
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
-            monitor="val_loss",
+            monitor="val_total_loss",
             mode="min",
             dirpath=checkpoint_save_path,
             filename="gfs_converter-epoch-{epoch:02d}-val_loss-{val_loss:.2f}",
@@ -220,14 +227,10 @@ def main():
             input, truth = batch
 
             print(f"Batch {i}")
-            print(f"\tInput: {type(input)}, {input.shape}")
-            print(f"\tTruth: {type(truth)}, {truth.shape}")
 
             # Make predictions
             input = input.to(best_model.device) # TODO: ensure all data and the model are on GPU
             pred = best_model(input)
-
-            print(f"\tPred: {type(pred)}, {pred.shape}")
 
             # Use these three tensors to make comparison plots
             gfs_channel = gfs_variable_to_idx[(VAR, LEVEL)]
@@ -255,6 +258,9 @@ def main():
             # Use these tensors to generate visualizations
             compare_all_tensors(input_slice, truth_slice, pred_slice, i, VAR, LEVEL, 
                                 output_path="testing_viz")
+            compare_all_tensors_spectral(input_slice, truth_slice, pred_slice, i, 
+                                         VAR, LEVEL, output_path="testing_viz")
+            
 
             
 

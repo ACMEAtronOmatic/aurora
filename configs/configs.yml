@@ -74,6 +74,10 @@ inference:
   batch_size: 1
   debug_data: false
   debug_model: false
+  patience: 3
   max_epochs: 25
   variable: "u"
-  level: 500
+  level: 1000
+  mae_weight: 0.4
+  mse_weight: 0.0
+  ssim_weight: 0.6

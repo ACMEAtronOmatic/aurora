@@ -63,3 +63,537 @@ Total params: 731 M
 Total estimated model params size (MB): 2.9 K                                   
 Modules in train mode: 60                                                       
 Modules in eval mode: 0                                                         
+Epoch 0/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:08 • 0:00:00 0.17it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.315            
+                                                               train_pixel_loss:
+                                                               0.250            
+                                                               train_total_loss:
+                                                               0.565            
+                                                               val_ssim_loss:   
+                                                               0.315            
+                                                               val_pixel_loss:  
+                                                               0.250            
+                                                               val_total_loss:  
+                                                               0.565            
+Epoch 1/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:09 • 0:00:00 0.17it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.290            
+                                                               train_pixel_loss:
+                                                               0.240            
+                                                               train_total_loss:
+                                                               0.530            
+                                                               val_ssim_loss:   
+                                                               0.290            
+                                                               val_pixel_loss:  
+                                                               0.241            
+                                                               val_total_loss:  
+                                                               0.531            
+Epoch 2/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:11 • 0:00:00 0.20it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.288            
+                                                               train_pixel_loss:
+                                                               0.239            
+                                                               train_total_loss:
+                                                               0.527            
+                                                               val_ssim_loss:   
+                                                               0.288            
+                                                               val_pixel_loss:  
+                                                               0.240            
+                                                               val_total_loss:  
+                                                               0.528            
+Epoch 3/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:12 • 0:00:00 0.17it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.286            
+                                                               train_pixel_loss:
+                                                               0.238            
+                                                               train_total_loss:
+                                                               0.525            
+                                                               val_ssim_loss:   
+                                                               0.287            
+                                                               val_pixel_loss:  
+                                                               0.239            
+                                                               val_total_loss:  
+                                                               0.526            
+Epoch 4/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:07 • 0:00:00 0.18it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.286            
+                                                               train_pixel_loss:
+                                                               0.238            
+                                                               train_total_loss:
+                                                               0.524            
+                                                               val_ssim_loss:   
+                                                               0.287            
+                                                               val_pixel_loss:  
+                                                               0.239            
+                                                               val_total_loss:  
+                                                               0.526            
+Epoch 5/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:12 • 0:00:00 0.18it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.286            
+                                                               train_pixel_loss:
+                                                               0.239            
+                                                               train_total_loss:
+                                                               0.525            
+                                                               val_ssim_loss:   
+                                                               0.287            
+                                                               val_pixel_loss:  
+                                                               0.239            
+                                                               val_total_loss:  
+                                                               0.526            
+Epoch 6/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:12 • 0:00:00 0.17it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.267            
+                                                               train_pixel_loss:
+                                                               0.235            
+                                                               train_total_loss:
+                                                               0.502            
+                                                               val_ssim_loss:   
+                                                               0.268            
+                                                               val_pixel_loss:  
+                                                               0.235            
+                                                               val_total_loss:  
+                                                               0.504            
+Epoch 7/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:13 • 0:00:00 0.18it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.270            
+                                                               train_pixel_loss:
+                                                               0.238            
+                                                               train_total_loss:
+                                                               0.508            
+                                                               val_ssim_loss:   
+                                                               0.268            
+                                                               val_pixel_loss:  
+                                                               0.235            
+                                                               val_total_loss:  
+                                                               0.503            
+Epoch 8/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:08 • 0:00:00 0.18it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.268            
+                                                               train_pixel_loss:
+                                                               0.237            
+                                                               train_total_loss:
+                                                               0.505            
+                                                               val_ssim_loss:   
+                                                               0.265            
+                                                               val_pixel_loss:  
+                                                               0.234            
+                                                               val_total_loss:  
+                                                               0.500            
+Epoch 9/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:09 • 0:00:00 0.17it/s v_num: 2.000     
+                                                               train_ssim_loss: 
+                                                               0.265            
+                                                               train_pixel_loss:
+                                                               0.236            
+                                                               train_total_loss:
+                                                               0.501            
+                                                               val_ssim_loss:   
+                                                               0.263            
+                                                               val_pixel_loss:  
+                                                               0.235            
+                                                               val_total_loss:  
+                                                               0.498            
+Epoch 10/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:14 •        0.17it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.260            
+                                                               train_pixel_loss:
+                                                               0.235            
+                                                               train_total_loss:
+                                                               0.495            
+                                                               val_ssim_loss:   
+                                                               0.259            
+                                                               val_pixel_loss:  
+                                                               0.233            
+                                                               val_total_loss:  
+                                                               0.492            
+Epoch 11/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:14 •        0.17it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.258            
+                                                               train_pixel_loss:
+                                                               0.235            
+                                                               train_total_loss:
+                                                               0.492            
+                                                               val_ssim_loss:   
+                                                               0.256            
+                                                               val_pixel_loss:  
+                                                               0.232            
+                                                               val_total_loss:  
+                                                               0.488            
+Epoch 12/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:11 •        0.20it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.256            
+                                                               train_pixel_loss:
+                                                               0.233            
+                                                               train_total_loss:
+                                                               0.490            
+                                                               val_ssim_loss:   
+                                                               0.255            
+                                                               val_pixel_loss:  
+                                                               0.233            
+                                                               val_total_loss:  
+                                                               0.488            
+Epoch 13/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:11 •        0.17it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.253            
+                                                               train_pixel_loss:
+                                                               0.231            
+                                                               train_total_loss:
+                                                               0.485            
+                                                               val_ssim_loss:   
+                                                               0.254            
+                                                               val_pixel_loss:  
+                                                               0.231            
+                                                               val_total_loss:  
+                                                               0.485            
+Epoch 14/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:12 •        0.17it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.254            
+                                                               train_pixel_loss:
+                                                               0.233            
+                                                               train_total_loss:
+                                                               0.487            
+                                                               val_ssim_loss:   
+                                                               0.253            
+                                                               val_pixel_loss:  
+                                                               0.231            
+                                                               val_total_loss:  
+                                                               0.484            
+Epoch 15/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:08 •        0.15it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.252            
+                                                               train_pixel_loss:
+                                                               0.232            
+                                                               train_total_loss:
+                                                               0.483            
+                                                               val_ssim_loss:   
+                                                               0.251            
+                                                               val_pixel_loss:  
+                                                               0.230            
+                                                               val_total_loss:  
+                                                               0.481            
+Epoch 16/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:09 •        0.18it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.249            
+                                                               train_pixel_loss:
+                                                               0.229            
+                                                               train_total_loss:
+                                                               0.478            
+                                                               val_ssim_loss:   
+                                                               0.250            
+                                                               val_pixel_loss:  
+                                                               0.230            
+                                                               val_total_loss:  
+                                                               0.480            
+Epoch 17/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:09 •        0.18it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.248            
+                                                               train_pixel_loss:
+                                                               0.230            
+                                                               train_total_loss:
+                                                               0.478            
+                                                               val_ssim_loss:   
+                                                               0.248            
+                                                               val_pixel_loss:  
+                                                               0.231            
+                                                               val_total_loss:  
+                                                               0.479            
+Epoch 18/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:08 •        0.17it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.246            
+                                                               train_pixel_loss:
+                                                               0.229            
+                                                               train_total_loss:
+                                                               0.475            
+                                                               val_ssim_loss:   
+                                                               0.246            
+                                                               val_pixel_loss:  
+                                                               0.229            
+                                                               val_total_loss:  
+                                                               0.475            
+Epoch 19/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:09 •        0.18it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.245            
+                                                               train_pixel_loss:
+                                                               0.230            
+                                                               train_total_loss:
+                                                               0.475            
+                                                               val_ssim_loss:   
+                                                               0.245            
+                                                               val_pixel_loss:  
+                                                               0.229            
+                                                               val_total_loss:  
+                                                               0.474            
+Epoch 20/24 ━━━━━━━━━━━━━━━━ 108/108 0:11:53 •        0.20it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.242            
+                                                               train_pixel_loss:
+                                                               0.229            
+                                                               train_total_loss:
+                                                               0.471            
+                                                               val_ssim_loss:   
+                                                               0.242            
+                                                               val_pixel_loss:  
+                                                               0.230            
+                                                               val_total_loss:  
+                                                               0.472            
+Epoch 21/24 ━━━━━━━━━━━━━━━━ 108/108 0:11:55 •        0.20it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.241            
+                                                               train_pixel_loss:
+                                                               0.229            
+                                                               train_total_loss:
+                                                               0.471            
+                                                               val_ssim_loss:   
+                                                               0.241            
+                                                               val_pixel_loss:  
+                                                               0.229            
+                                                               val_total_loss:  
+                                                               0.471            
+Epoch 22/24 ━━━━━━━━━━━━━━━━ 108/108 0:11:49 •        0.21it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.240            
+                                                               train_pixel_loss:
+                                                               0.229            
+                                                               train_total_loss:
+                                                               0.469            
+                                                               val_ssim_loss:   
+                                                               0.241            
+                                                               val_pixel_loss:  
+                                                               0.229            
+                                                               val_total_loss:  
+                                                               0.470            
+Epoch 23/24 ━━━━━━━━━━━━━━━━ 108/108 0:11:50 •        0.20it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.239            
+                                                               train_pixel_loss:
+                                                               0.229            
+                                                               train_total_loss:
+                                                               0.468            
+                                                               val_ssim_loss:   
+                                                               0.240            
+                                                               val_pixel_loss:  
+                                                               0.229            
+                                                               val_total_loss:  
+                                                               0.469            
+`Trainer.fit` stopped: `max_epochs=25` reached.
+Epoch 24/24 ━━━━━━━━━━━━━━━━ 108/108 0:12:10 •        0.18it/s v_num: 2.000     
+                                     0:00:00                   train_ssim_loss: 
+                                                               0.239            
+                                                               train_pixel_loss:
+                                                               0.228            
+                                                               train_total_loss:
+                                                               0.467            
+                                                               val_ssim_loss:   
+                                                               0.240            
+                                                               val_pixel_loss:  
+                                                               0.229            
+                                                               val_total_loss:  
+                                                               0.468            
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+/home/jgib124/aurora/aurora/inference/generate_outputs.py:534: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+Batch 0
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.928704738616943
+	Input Std: 12.729884147644043
+	Pred Mean: 7.200839996337891
+	Pred Std: 12.909390449523926
+	Truth Mean: 7.013223648071289
+	Truth Std: 12.864507675170898
+Tensor Range:  -32.159336 62.840664
+Batch 1
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.991284370422363
+	Input Std: 12.548856735229492
+	Pred Mean: 7.23396635055542
+	Pred Std: 12.78748607635498
+	Truth Mean: 7.069414138793945
+	Truth Std: 12.603857040405273
+Tensor Range:  -31.908676 61.791325
+Batch 2
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.344651222229004
+	Input Std: 12.957876205444336
+	Pred Mean: 6.835390090942383
+	Pred Std: 12.54433822631836
+	Truth Mean: 6.377764701843262
+	Truth Std: 12.993325233459473
+Tensor Range:  -41.00444 72.375565
+Batch 3
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.79832124710083
+	Input Std: 12.744214057922363
+	Pred Mean: 7.103590965270996
+	Pred Std: 12.757564544677734
+	Truth Mean: 6.853029251098633
+	Truth Std: 12.88857650756836
+Tensor Range:  -29.870378 64.38962
+Batch 4
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.281869411468506
+	Input Std: 12.89881420135498
+	Pred Mean: 6.921074390411377
+	Pred Std: 12.673696517944336
+	Truth Mean: 6.3212690353393555
+	Truth Std: 13.017271995544434
+Tensor Range:  -31.290913 65.23909
+Batch 5
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.9442009925842285
+	Input Std: 12.114151000976562
+	Pred Mean: 7.323346138000488
+	Pred Std: 12.309643745422363
+	Truth Mean: 6.976165294647217
+	Truth Std: 12.221766471862793
+Tensor Range:  -25.190966 61.009033
+Batch 6
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 7.1056413650512695
+	Input Std: 12.188621520996094
+	Pred Mean: 7.348072052001953
+	Pred Std: 12.446011543273926
+	Truth Mean: 7.140449523925781
+	Truth Std: 12.369239807128906
+Tensor Range:  -26.60715 59.392853
+Batch 7
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 7.077643871307373
+	Input Std: 11.962817192077637
+	Pred Mean: 7.3076395988464355
+	Pred Std: 12.184202194213867
+	Truth Mean: 7.156251907348633
+	Truth Std: 12.117000579833984
+Tensor Range:  -27.242271 68.387726
+Batch 8
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.307222366333008
+	Input Std: 12.951495170593262
+	Pred Mean: 7.031097888946533
+	Pred Std: 13.102229118347168
+	Truth Mean: 6.461600303649902
+	Truth Std: 13.062854766845703
+Tensor Range:  -37.522354 58.457645
+Batch 9
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.4545063972473145
+	Input Std: 12.851933479309082
+	Pred Mean: 6.912437438964844
+	Pred Std: 12.986324310302734
+	Truth Mean: 6.516557216644287
+	Truth Std: 13.066296577453613
+Tensor Range:  -28.933878 63.96612
+Batch 10
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.434031009674072
+	Input Std: 12.986695289611816
+	Pred Mean: 7.096009731292725
+	Pred Std: 13.133240699768066
+	Truth Mean: 6.496395587921143
+	Truth Std: 13.07471752166748
+Tensor Range:  -35.891983 70.21802
+Batch 11
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.937664985656738
+	Input Std: 12.176424026489258
+	Pred Mean: 7.170034408569336
+	Pred Std: 12.263463973999023
+	Truth Mean: 7.004157066345215
+	Truth Std: 12.333709716796875
+Tensor Range:  -32.52426 57.075737
+Batch 12
+	Input: <class 'torch.Tensor'>, torch.Size([1, 85, 721, 1440])
+	Truth: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Pred: <class 'torch.Tensor'>, torch.Size([1, 69, 721, 1440])
+	Input Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Truth Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Pred Slice: <class 'torch.Tensor'>, torch.Size([721, 1440])
+	Input Mean: 6.885969161987305
+	Input Std: 12.533417701721191
+	Pred Mean: 7.186278820037842
+	Pred Std: 12.782161712646484
+	Truth Mean: 7.041639804840088
+	Truth Std: 12.601737022399902
+Tensor Range:  -34.447243 67.25276

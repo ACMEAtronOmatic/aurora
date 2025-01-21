@@ -71,6 +71,8 @@ myradar = [
     "tensorboardX", 
     "tensorboard",
     "torchinfo",
+    "pyshtools",
+    "scores"
 ]
 
 [project.urls]

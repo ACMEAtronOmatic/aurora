@@ -44,7 +44,10 @@ ERA5_GLOBAL_RANGES = {
 
 
 class Loss(nn.Module):
-    def __init__(self, channel_mapper, remap=True, exponent=5.0, power=3.0, constant=1.0, channels=16, debug=False):
+    def __init__(self, channel_mapper, remap=True,
+                  exponent=5.0, power=3.0, constant=1.0,
+                    channels=16, debug=False,
+                     mse_weight=1.0, mae_weight=0.0, ssim_weight=0.0):
         super().__init__()
 
         self.debug = debug
@@ -102,12 +105,10 @@ class Loss(nn.Module):
         weighting = torch.full_like(y, 1.0, dtype=torch.float32)
         weighting = torch.exp(self.exponent * torch.pow(y, self.power)) + self.constant
 
-        pixel_loss = (0.5 * torch.mean(torch.multiply(weighting, torch.abs(x - y)))) + \
-                     (0.5 * torch.mean(torch.multiply(1 - weighting, torch.square(x - y))))
+        mae_loss = torch.mean(torch.multiply(weighting, torch.abs(x - y)))
+        mse_loss = torch.mean(torch.multiply(weighting, torch.square(x - y)))
 
-        total_loss = ssim_loss + pixel_loss
-
-        return ssim_loss, pixel_loss
+        return mse_loss, mae_loss, ssim_loss
 
 
 class SEAttnBlock(nn.Module):
@@ -390,7 +391,8 @@ class LightningGFSUnbiaser(pl.LightningModule):
     def __init__(self, in_channels, out_channels, channel_mapper, 
                  samples, height, width,
                   feature_dims=[64, 128, 256, 512],
-                   use_se=True, r=8, double=False, debug=False):
+                   use_se=True, r=8, double=False, debug=False,
+                     mse_weight=1.0, mae_weight=0.0, ssim_weight=0.0):
         super().__init__()
         self.save_hyperparameters()
 
@@ -402,6 +404,10 @@ class LightningGFSUnbiaser(pl.LightningModule):
         
         self.channel_mapper = channel_mapper
         self.debug = debug
+
+        self.mse_weight = mse_weight
+        self.mae_weight = mae_weight
+        self.ssim_weight = ssim_weight
 
         self.model = GFSUnbiaser(in_channels, out_channels, 
                                  feature_dims=feature_dims,
@@ -423,17 +429,21 @@ class LightningGFSUnbiaser(pl.LightningModule):
         x, y = batch
         pred = self.forward(x)
 
-        ssim_loss, pixel_loss = self.loss_fxn.forward(pred, y)
+        mse_loss, mae_loss, ssim_loss = self.loss_fxn.forward(pred, y)
+
+        composite_loss = (self.mse_weight * mse_loss) + (self.mae_weight * mae_loss) + (self.ssim_weight * ssim_loss)
 
         if stage is not None:
             self.log_dict({f"{stage}_ssim_loss": ssim_loss,
-                            f"{stage}_pixel_loss": pixel_loss, 
-                            f"{stage}_total_loss": ssim_loss + pixel_loss},
+                            f"{stage}_mse_loss": mse_loss, 
+                            f"{stage}_mae_loss": mae_loss,
+                            f"{stage}_composite_loss": composite_loss},
                             prog_bar=True)
         else:
             self.log_dict({"val_ssim_loss": ssim_loss,
-                            "val_pixel_loss": pixel_loss,
-                            "val_total_loss": ssim_loss + pixel_loss},
+                            "val_mse_loss": mse_loss,
+                            "val_mae_loss": mae_loss,
+                            "val_composite_loss": composite_loss},
                             prog_bar=True)
 
     def training_step(self, batch, batch_idx, stage=None):
@@ -448,29 +458,34 @@ class LightningGFSUnbiaser(pl.LightningModule):
         if torch.isnan(logits).any() or torch.isinf(logits).any():
             raise ValueError("Output tensor contains NaN or Inf values")
 
-        ssim_loss, pixel_loss = self.loss_fxn.forward(logits, y)
+        mse_loss, mae_loss, ssim_loss = self.loss_fxn.forward(logits, y)
 
         # Check if there are nan or inf values in the loss tensor
         if torch.isnan(ssim_loss).any() or torch.isinf(ssim_loss).any():
             raise ValueError("SSIM loss tensor contains NaN or Inf values")
         
-        if torch.isnan(pixel_loss).any() or torch.isinf(pixel_loss).any():
-            raise ValueError("Pixel loss tensor contains NaN or Inf values")
+        if torch.isnan(mse_loss).any() or torch.isinf(mse_loss).any():
+            raise ValueError("MSE loss tensor contains NaN or Inf values")
+        
+        if torch.isnan(mae_loss).any() or torch.isinf(mae_loss).any():
+            raise ValueError("MAE loss tensor contains NaN or Inf values")
 
-        loss = ssim_loss + pixel_loss
+        composite_loss = (self.mse_weight * mse_loss) + (self.mae_weight * mae_loss) + (self.ssim_weight * ssim_loss)
 
         if stage is not None:
             self.log_dict({f"{stage}_ssim_loss": ssim_loss,
-                            f"{stage}_pixel_loss": pixel_loss, 
-                            f"{stage}_total_loss": loss},
+                            f"{stage}_mse_loss": mse_loss,
+                            f"{stage}_mae_loss": mae_loss, 
+                            f"{stage}_composite_loss": composite_loss},
                             prog_bar=True)
         else:
             self.log_dict({"train_ssim_loss": ssim_loss,
-                            "train_pixel_loss": pixel_loss, 
-                            "train_total_loss": loss},
+                            "train_mse_loss": mse_loss,
+                            "train_mae_loss": mae_loss, 
+                            "train_composite_loss": composite_loss},
                             prog_bar=True)
 
-        return loss
+        return composite_loss
 
     def validation_step(self, batch, batch_idx):
         self.evaluate(batch, "val")

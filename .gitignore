@@ -35,3 +35,4 @@ downloads/*
 .vscode
 gfs_converter_logs
 gfs_converter_ckpt
+testing_viz
