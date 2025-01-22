@@ -1,5 +1,8 @@
 ---
 data:
+  normalize: true
+  interpolate: true
+  residuals: true
   era5:
     download_path: "downloads"
     static_variables: ["geopotential", "land_sea_mask", "soil_type"]

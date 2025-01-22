@@ -45,6 +45,24 @@ GFS_GLOBAL_RANGES = {
 # Distinguish between GFS surface and atmospheric variables
 # To minimize total number of channels
 GFS_LAND_CHANNELS = ['lsm', 'mslet', 'slt', 'orog']
+ERA_LAND_CHANNELS = ['u10', 'v10', 't2m', 'msl']
+
+# Map from ERA5 to analogous GFS variables
+ERA5_TO_GFS = {
+    't': 't',
+    'q': 'q',
+    'u': 'u',
+    'v': 'v',
+    'z': 'gh',
+    'msl': 'mslet',
+    'u10': 'u',
+    'v10': 'v',
+    't2m': 't',
+}
+
+
+# Denote ERA5 Surface Channels, which can be roughly aligned with GFS Level 1000 channels
+
 
 def interpolate_missing_values(tensor, threshold = 0.1):
 
@@ -69,7 +87,25 @@ def interpolate_missing_values(tensor, threshold = 0.1):
 
     return tensor
 
-def normalize_tensor(tensor, var, level, dataset='GFS'):
+def normalize_tensor(tensor, var, dataset='GFS'):
+    '''
+    Normalize data based on global ranges for the specific variables/datasets
+
+    Parameters
+    ----------
+    tensor : torch.Tensor
+        Tensor to normalize
+    var : str
+        Variable name
+    dataset : str
+        Dataset name ['GFS', 'ERA5']
+
+    Returns
+    -------
+    torch.Tensor
+        Normalized tensor
+
+    '''
     if dataset == 'GFS':
         min_val = GFS_GLOBAL_RANGES[var]['min']
         max_val = GFS_GLOBAL_RANGES[var]['max']
@@ -81,11 +117,57 @@ def normalize_tensor(tensor, var, level, dataset='GFS'):
 
     return tensor
 
+def denormalize_tensor(tensor, var, dataset='GFS'):
+    '''
+    Returns normalized data to its orignal data space
+
+    Parameters
+    ----------
+    tensor : torch.Tensor
+        Tensor to denormalize
+    var : str
+        Variable name
+    dataset : str
+        Dataset name ['GFS', 'ERA5']
+
+    Returns
+    -------
+    torch.Tensor
+        Denormalized tensor
+    '''
+    if dataset == 'GFS':
+        min_val = GFS_GLOBAL_RANGES[var]['min']
+        max_val = GFS_GLOBAL_RANGES[var]['max']
+    else:
+        min_val = ERA5_GLOBAL_RANGES[var]['min']
+        max_val = ERA5_GLOBAL_RANGES[var]['max']
+
+    tensor = tensor * (max_val - min_val) + min_val
+
+    return tensor
+
 class GFSDataset(torch.utils.data.Dataset):
+    '''
+    Torch Dataset for the GFS Unbiasing UNet. 
+    Input data is GFS surface and atmospheric variables at defined levels
+    Target data is ERA5 surface and atmoshperic data at defined levels
+    The output data can also be the residuals between ERA5 and GFS, training the UNet
+    to only predict the changes necessary to unbias GFS
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary
+    debug : bool
+        Debug mode
+    '''
     def __init__(self, config, debug=False):
         super().__init__()
 
         self.debug = debug
+        self.normalize = config['data']['normalize']
+        self.interpolate = config['data']['interpolate']
+        self.residuals = config['data']['residuals']
 
         start = config['data']['gfs']['time']['start']
         end = config['data']['gfs']['time']['end']
@@ -149,6 +231,21 @@ class GFSDataset(torch.utils.data.Dataset):
         # print_debug(self.debug, "ERA Atmos Variables: ", self.era_atmos.data_vars.keys())
 
     def gfs_idx_to_variable(self, tensor_idx):
+        '''
+        Channel mapper from the channel index to the variable and level
+
+        Parameters
+        ----------
+        tensor_idx : int
+            Channel index
+
+        Returns
+        -------
+        str
+            Variable name
+        str
+            Level
+        '''
         # Return the variable and level based off the channel index in the tensor
         # 4 land variables, 6 atmos variables, 13 levels
         surface_len = len(self.gfs_surface_channels)
@@ -169,6 +266,21 @@ class GFSDataset(torch.utils.data.Dataset):
             return self.era_static_tensor[tensor_idx - atmo_len - surface_len], 'surface'
 
     def era_idx_to_variable(self, tensor_idx):
+        '''
+        Channel mapper from the channel index to the variable and level
+
+        Parameters
+        ----------
+        tensor_idx : int
+            Channel index
+
+        Returns
+        -------
+        str
+            Variable name
+        str
+            Level
+        '''
         # Example: idx 9, channel 2, level 1 of 3 channels, 4 levels
         # To get channel 2 from idx 9: 9//4 == 2
         # To get level 1 from idx 9: 9%4 == 1
@@ -187,6 +299,10 @@ class GFSDataset(torch.utils.data.Dataset):
         return len(self.times)
 
     def __getitem__(self, index):
+        '''
+        Returns a single timestep of (input, target/truth) data using the given configs
+        Concatenates surface & atmospheric data together, interpolates missing values, and normalizes
+        '''
         # Return data at all levels and all variables
         # Assume that time steps across ERA and GFS are aligned
 
@@ -269,10 +385,51 @@ class GFSDataset(torch.utils.data.Dataset):
         print_debug(self.debug, "Truth Tensor Shape: ", truth_tensor.shape)
 
         # Check if there are any nans/infs in the tensor and correct them
-        input_tensor = interpolate_missing_values(input_tensor)
-        truth_tensor = interpolate_missing_values(truth_tensor)
+        if self.interpolate:
+            print_debug(self.debug, "Interpolating Missing Values...")
 
-        print_debug(self.debug, "Missing Values Interpolated", input_tensor.shape, truth_tensor.shape)
+            input_tensor = interpolate_missing_values(input_tensor)
+            truth_tensor = interpolate_missing_values(truth_tensor)
+
+            print_debug(self.debug, "Missing Values Interpolated", input_tensor.shape, truth_tensor.shape)
+
+        if self.normalize:
+            print_debug(self.debug, "Normalizing Data...")
+
+            for i in range(input_tensor.input_shape[0]):
+                # GFS
+                var, level = self.gfs_idx_to_variable(i)
+                input_tensor[i, :, :, :] = normalize_tensor(input_tensor[i, :, :, :], var, level, 'GFS')
+
+            for i in range(truth_tensor.output_shape[0]):
+                # ERA
+                var, level = self.era_idx_to_variable(i)
+                truth_tensor[i, :, :, :] = normalize_tensor(truth_tensor[i, :, :, :], var, level, 'ERA')
+
+            print_debug(self.debug, "Data Normalized")
+
+        if self.residuals:
+            # Return the difference between ERA5 and GFS as the truth tensor
+            # Need to align based on variables
+
+            # Go through each ERA5 channel individually
+            # Subtract the analogous channel from GFS, including level
+            for i in range(truth_tensor.output_shape[0]):
+                # ERA
+                var, level = self.era_idx_to_variable(i)
+                
+                # Get the analogous GFS variable
+                var = ERA5_TO_GFS[var]
+
+                # If the level is 'surface', use 1000 in GFS
+                if level == 'surface':
+                    level = 1000
+
+                gfs_index = self.gfs_variable_to_idx[(var, level)]
+
+                # Subtract this GFS channel from the ERA5 data
+                truth_tensor[i, :, :, :] = truth_tensor[i, :, :, :] - input_tensor[gfs_index, :, :, :]
+
 
         return input_tensor, truth_tensor
 
@@ -342,10 +499,17 @@ class GFSDataModule(pl.LightningDataModule):
         for i in range(gfs_dataset.output_shape[0]):
             self.era_idx_to_variable[i] = gfs_dataset.era_idx_to_variable(i)
 
+        # Create the reverse dictionary as well (variable, level): index
+        self.era_variable_to_idx = {v:k for k, v in self.era_idx_to_variable.items()}
+
         self.gfs_idx_to_variable = {}
         print("GFS Size: ", gfs_dataset.input_shape[0])
         for i in range(gfs_dataset.input_shape[0]):
             self.gfs_idx_to_variable[i] = gfs_dataset.gfs_idx_to_variable(i)
+
+        # Create the reverse dictionary (variable, level): index
+        self.gfs_variable_to_idx = {v:k for k, v in self.gfs_idx_to_variable.items()}
+
 
         print(f"Memory after Data Setup: {check_gpu_memory():.2f} GB")
 
