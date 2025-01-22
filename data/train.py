@@ -146,7 +146,6 @@ def main():
         best_file = min(files, key=lambda f: float(re.findall(r'\d+\.\d+|\d+', f)[1]) if len(re.findall(r'\d+\.\d+|\d+', f)) > 1 else float('inf'))
 
         # Checkpoint callback will not have any information
-        # TODO: problems loading the model???
         best_model = LightningGFSUnbiaser.load_from_checkpoint(
             os.path.join(save_path, best_file),
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
@@ -158,7 +157,7 @@ def main():
 
         best_model.eval()
 
-    else:
+    else: # Train
 
         model = LightningGFSUnbiaser(in_channels=input_channels, out_channels=output_channels, 
                                     channel_mapper=dm.era_idx_to_variable, samples=batch_size, 

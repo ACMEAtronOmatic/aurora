@@ -12,6 +12,35 @@ from data.utils import print_debug, check_gpu_memory
 from data.gfs_download import download_gfs, process_gfs
 from data.era5_download import download_static_era5
 
+ERA5_GLOBAL_RANGES = {
+    # Surface Variables
+    't2m': {'min': 170, 'max': 350},  # 2m Temperature [K]
+    'msl': {'min': 85000, 'max': 110000},  # Mean Sea Level Pressure [Pa]
+    'u10': {'min': -110, 'max': 110},  # 10m U-wind [m/s]
+    'v10': {'min': -80, 'max': 80},  # 10m V-wind [m/s]
+    
+    # Atmospheric Variables (at all pressure levels)
+    't': {'min': 160, 'max': 350},  # Temperature [K]
+    'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
+    'u': {'min': -110, 'max': 110},  # U-wind [m/s]
+    'v': {'min': -100, 'max': 100},  # V-wind [m/s]
+    'z': {'min': -5000, 'max': 225000},  # Geopotential Height [m]
+}
+
+GFS_GLOBAL_RANGES = {
+    # Atmospheric Variables (at all pressure levels)
+    't': {'min': 160, 'max': 350},  # Temperature [K]
+    'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
+    'u': {'min': -110, 'max': 110},  # U-wind [m/s]
+    'v': {'min': -100, 'max': 100},  # V-wind [m/s]
+    'z': {'min': -5000, 'max': 225000},  # Geopotential Height [m]
+
+    # Surface Variables
+    'lsm': {'min': 0, 'max': 1},  # Land Sea Mask
+    'mslet': {'min': 85000, 'max': 110000},  # Mean Sea Level Pressure,
+    'slt': {'min': 0, 'max': 16}, # Soil Type
+    'orog': {'min': -500, 'max': 6000} # Orography (Elevation)
+}
 
 # Distinguish between GFS surface and atmospheric variables
 # To minimize total number of channels
@@ -40,6 +69,17 @@ def interpolate_missing_values(tensor, threshold = 0.1):
 
     return tensor
 
+def normalize_tensor(tensor, var, level, dataset='GFS'):
+    if dataset == 'GFS':
+        min_val = GFS_GLOBAL_RANGES[var]['min']
+        max_val = GFS_GLOBAL_RANGES[var]['max']
+    else:
+        min_val = ERA5_GLOBAL_RANGES[var]['min']
+        max_val = ERA5_GLOBAL_RANGES[var]['max']
+
+    tensor = torch.clamp((tensor - min_val) / (max_val - min_val), 0, 1)
+
+    return tensor
 
 class GFSDataset(torch.utils.data.Dataset):
     def __init__(self, config, debug=False):
