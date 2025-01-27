@@ -604,6 +604,80 @@ def compare_all_tensors_spectral(gfs_tensor, era_tensor, output_tensor,
     # print(f"CRPS: {crps}")
 
 
+def visualize_residuals(gfs_tensor, era_tensor, output_tensor, 
+                        channel, variable, level, output_path=""):
+    
+    # Ensure non inf non null values
+    valid_gfs = torch.where(torch.isnan(gfs_tensor), torch.tensor(0, device=gfs_tensor.device), gfs_tensor).cpu().numpy()
+    valid_era = torch.where(torch.isnan(era_tensor), torch.tensor(0, device=era_tensor.device), era_tensor).cpu().numpy()
+    valid_output = torch.where(torch.isnan(output_tensor), torch.tensor(0, device=output_tensor.device), output_tensor).cpu().numpy()
+
+    # Create the composite output
+    composite = valid_gfs + valid_output
+
+    # Get the stats from each of these datasets
+    min = np.amin([np.amin(valid_gfs), np.amin(valid_era), np.amin(composite)])
+    max = np.amax([np.amax(valid_gfs), np.amax(valid_era), np.amax(composite)])
+    med = np.median([np.median(valid_gfs), np.median(valid_era), np.median(composite)])
+
+    # Set the projection
+    crs = ccrs.PlateCarree(central_longitude=180)   
+
+    lon = np.arange(-180, 180, 0.25)
+    lat = np.arange(-90, 90, 0.25)
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
+
+    fig = plt.figure(figsize=(12, 6))
+
+    # Display three plots horizontally
+    ax1 = fig.add_subplot(2, 2, 1, projection=crs) # GFS
+    ax2 = fig.add_subplot(2, 2, 2, projection=crs) # ERA
+    ax3 = fig.add_subplot(2, 2, 3, projection=crs) # Output
+    ax4 = fig.add_subplot(2, 2, 4, projection=crs) # Composite
+
+    im1 = ax1.imshow(valid_gfs, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+    im2 = ax2.imshow(valid_era, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+    im3 = ax3.imshow(valid_output, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+    im4 = ax4.imshow(composite, vmin=min, vmax=max, cmap='turbo', transform=crs, extent=extent)
+
+    ax1.coastlines(linewidth=0.7)
+    ax2.coastlines(linewidth=0.7)
+    ax3.coastlines(linewidth=0.7)
+    ax4.coastlines(linewidth=0.7)
+    ax1.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax2.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax3.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax4.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+
+    cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.03])
+    cbar = fig.colorbar(im4, cax=cbar_ax, orientation="horizontal")
+    cbar.set_label(variable)
+    cbar.set_ticks([min, med, max])
+
+    fig.suptitle(f"All Datasets: C{channel}-{variable}-{level}")
+
+    ax1.set_title("GFS")
+    ax2.set_title("ERA5")
+    ax3.set_title("Model Output Residuals")
+    ax4.set_title("Composite: GFS + Residuals")
+
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+    ax3.set_xticks([])
+    ax3.set_yticks([])
+    ax4.set_xticks([])
+    ax4.set_yticks([])
+
+    plt.tight_layout()
+    
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    name = os.path.join(output_path, f"all_datasets_c{channel}-{variable}-{level}.png")
+    plt.savefig(name, bbox_inches='tight')
+
 
 if __name__ == "__main__":
     from data_download import download_era5, make_batch

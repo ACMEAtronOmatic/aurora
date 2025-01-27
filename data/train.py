@@ -21,7 +21,7 @@ from data.gfs_download import download_gfs, process_gfs
 from data.dataloader import GFSDataModule
 from data.model import LightningGFSUnbiaser
 
-from inference.generate_outputs import compare_all_tensors, compare_all_tensors_spectral
+from inference.generate_outputs import compare_all_tensors, compare_all_tensors_spectral, visualize_residuals
 
 import torch
 import pytorch_lightning as pl
@@ -172,7 +172,7 @@ def main():
 
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
-            monitor="val_total_loss",
+            monitor="val_composite_loss",
             mode="min",
             dirpath=checkpoint_save_path,
             filename="gfs_converter-epoch-{epoch:02d}-val_loss-{val_loss:.2f}",
@@ -254,11 +254,16 @@ def main():
             print(f"\tTruth Mean: {truth_slice.mean()}")
             print(f"\tTruth Std: {truth_slice.std()}")
 
+            # TODO: should data be denormalized before inputting into visualizations?
+
             # Use these tensors to generate visualizations
             compare_all_tensors(input_slice, truth_slice, pred_slice, i, VAR, LEVEL, 
                                 output_path="testing_viz")
             compare_all_tensors_spectral(input_slice, truth_slice, pred_slice, i, 
                                          VAR, LEVEL, output_path="testing_viz")
+            visualize_residuals(input_slice, truth_slice, pred_slice, gfs_channel,
+                                 VAR, LEVEL, output_path="testing_viz")
+            
             
 
             
