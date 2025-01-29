@@ -12,6 +12,8 @@ from data.utils import print_debug, check_gpu_memory
 from data.gfs_download import download_gfs, process_gfs
 from data.era5_download import download_static_era5
 
+from inference.generate_outputs import visualize_input_era_target
+
 ERA5_GLOBAL_RANGES = {
     # Surface Variables
     't2m': {'min': 170, 'max': 350},  # 2m Temperature [K]
@@ -24,7 +26,7 @@ ERA5_GLOBAL_RANGES = {
     'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
     'u': {'min': -110, 'max': 110},  # U-wind [m/s]
     'v': {'min': -100, 'max': 100},  # V-wind [m/s]
-    'z': {'min': -5000, 'max': 225000},  # Geopotential Height [m]
+    'z': {'min': -50000, 'max': 750000},  # Geopotential [m^2/s^2]
 
     # Static Variables
     'lsm': {'min': 0, 'max': 1},  # Land Sea Mask
@@ -37,7 +39,7 @@ GFS_GLOBAL_RANGES = {
     'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
     'u': {'min': -110, 'max': 110},  # U-wind [m/s]
     'v': {'min': -100, 'max': 100},  # V-wind [m/s]
-    'gh': {'min': -5000, 'max': 225000},  # Geopotential Height [m]
+    'gh': {'min': -50000, 'max': 750000},  # GH (m) converted to Geopotential [m^2/s^2] w/ Gravity = 9.81 m/s^2
     'r': {'min': 0, 'max': 100},  # Relative Humidity
 
     # Surface Variables
@@ -217,6 +219,9 @@ class GFSDataset(torch.utils.data.Dataset):
         self.gfs_surface_channels = list(self.gfs_surface.keys())
         self.gfs_atmos = self.gfs.drop_vars(GFS_LAND_CHANNELS)
         self.gfs_atmos_channels = list(self.gfs_atmos.keys())
+
+        # NOTE: Multiply GFS Atmos Geopotential Height (m) by gravity to get Geopotential (m^2/s^2)
+        self.gfs_atmos['gh'] = self.gfs_atmos['gh'] * 9.80665
 
         print_debug(self.debug, "ERA Static Channels: ", self.era_static_channels)
         print_debug(self.debug, "ERA Surface Channels: ", self.era_surface_channels)
@@ -452,7 +457,22 @@ class GFSDataset(torch.utils.data.Dataset):
             # Go through each ERA5 channel individually
             # Subtract the analogous channel from GFS, including level
 
+            # Need to save intact ERA data for later evaluations
+            # Check if the attribute tensor has already been created
+            # It should be a 4D tensor with shape [t, channel*level, lat, lon]
+            if not hasattr(self, 'era_intact'):
+                self.era_intact = torch.zeros([0, *truth_tensor.shape])
+                print_debug(self.debug, "Creating ERA Intact")
+            else:
+                print_debug(self.debug, "ERA Intact already exists")
+
+            self.era_intact = torch.cat((self.era_intact, truth_tensor.clone().reshape(1, *truth_tensor.shape)), dim=0)
+
+            print_debug(self.debug, "ERA Intact Shape: ", self.era_intact.shape)
+
             print_debug(self.debug, "Subtracting GFS from ERA5 for Truth/Target tensor...")
+
+            residual_tensor = truth_tensor.clone()
 
             for i in range(truth_tensor.shape[0]):
                 # ERA
@@ -470,7 +490,14 @@ class GFSDataset(torch.utils.data.Dataset):
                 gfs_index = self.gfs_variable_to_idx[(var, level)]
 
                 # Subtract this GFS channel from the ERA5 data
-                truth_tensor[i, :, :] = truth_tensor[i, :, :] - input_tensor[gfs_index, :, :]
+                residual_tensor[i, :, :] = truth_tensor[i, :, :] - input_tensor[gfs_index, :, :]
+
+                if self.debug:
+                    visualize_input_era_target(input_tensor[gfs_index, :, :], truth_tensor[i, :, :],
+                                            residual_tensor[i, :, :], var, level, output_path="testing_viz")
+                
+                
+            truth_tensor = residual_tensor
 
             print_debug(self.debug, "ERA5-GFS Residuals Calculated")
 
@@ -537,7 +564,6 @@ class GFSDataModule(pl.LightningDataModule):
 
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
-
 
         print("GFS Size: ", gfs_dataset.input_shape[0])
         self.gfs_idx_to_variable = gfs_dataset.gfs_idx_to_variable

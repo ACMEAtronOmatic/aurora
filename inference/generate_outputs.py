@@ -679,6 +679,210 @@ def visualize_residuals(gfs_tensor, era_tensor, output_tensor,
     plt.savefig(name, bbox_inches='tight')
 
 
+def visualize_input_target(input_tensor, target_tensor, variable, level, output_path=""):
+    crs = ccrs.PlateCarree(central_longitude=180)   
+
+    lon = np.arange(-180, 180, 0.25)
+    lat = np.arange(-90, 90, 0.25)
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
+
+    input_tensor = torch.where(torch.isnan(input_tensor), torch.tensor(0, device=input_tensor.device), input_tensor).cpu().numpy()
+    target_tensor = torch.where(torch.isnan(target_tensor), torch.tensor(0, device=target_tensor.device), target_tensor).cpu().numpy()
+
+    in_min = np.amin(input_tensor)
+    in_max = np.amax(input_tensor)
+    in_med = np.median(input_tensor)
+
+    tar_min = np.amin(target_tensor)
+    tar_max = np.amax(target_tensor)
+    tar_med = np.median(target_tensor)
+
+    print("Tensor Range: ", in_min, in_max)
+
+    fig = plt.figure(figsize=(12, 6))
+
+    ax1 = fig.add_subplot(1, 2, 1, projection=crs)
+    ax2 = fig.add_subplot(1, 2, 2, projection=crs)
+
+    im1 = ax1.imshow(input_tensor, vmin=in_min, vmax=in_max, cmap='turbo', transform=crs, extent=extent)
+    im2 = ax2.imshow(target_tensor, vmin=tar_min, vmax=tar_max, cmap='coolwarm', transform=crs, extent=extent)
+
+    ax1.coastlines(linewidth=0.7)
+    ax2.coastlines(linewidth=0.7)
+    ax1.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax2.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+
+    fig.suptitle(f"{variable}-{level}")
+
+    ax1.set_title("GFS")
+    ax2.set_title("Residuals")
+
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+
+    cbar1 = fig.colorbar(im1, orientation="horizontal")
+    cbar1.set_label(variable)
+    cbar1.set_ticks([in_min, in_med, in_max])
+
+    cbar2 = fig.colorbar(im2, orientation="horizontal")
+    cbar2.set_label(variable)
+    cbar2.set_ticks([tar_min, tar_med, tar_max])
+
+    plt.tight_layout()
+    
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    name = os.path.join(output_path, f"{variable}-{level}-datacheck.png")
+    plt.savefig(name, bbox_inches='tight')
+
+
+def visualize_input_era_target(input_tensor, era_tensor, target_tensor, variable, level, output_path=""):
+    crs = ccrs.PlateCarree(central_longitude=180)   
+
+    lon = np.arange(-180, 180, 0.25)
+    lat = np.arange(-90, 90, 0.25)
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
+
+    input_tensor = torch.where(torch.isnan(input_tensor), torch.tensor(0, device=input_tensor.device), input_tensor).cpu().numpy()
+    target_tensor = torch.where(torch.isnan(target_tensor), torch.tensor(0, device=target_tensor.device), target_tensor).cpu().numpy()
+    era_tensor = torch.where(torch.isnan(era_tensor), torch.tensor(0, device=era_tensor.device), era_tensor).cpu().numpy()
+
+    cbar_min = np.amin([np.amin(era_tensor), np.amin(target_tensor)])
+    cbar_med = np.median([np.median(era_tensor), np.median(target_tensor)])
+    cbar_max = np.amax([np.amax(era_tensor), np.amax(target_tensor)])
+
+    tar_min = np.amin(target_tensor)
+    tar_max = np.amax(target_tensor)
+    tar_med = np.median(target_tensor)
+
+    print(f"{variable} - {level} Tensor Range: ", cbar_min, cbar_max)
+
+    fig = plt.figure(figsize=(12, 6))
+
+    ax1 = fig.add_subplot(1, 3, 1, projection=crs)
+    ax2 = fig.add_subplot(1, 3, 2, projection=crs)
+    ax3 = fig.add_subplot(1, 3, 3, projection=crs)
+
+    im1 = ax1.imshow(input_tensor, vmin=cbar_min, vmax=cbar_max, cmap='turbo', transform=crs, extent=extent)
+    im2 = ax2.imshow(era_tensor, vmin=cbar_min, vmax=cbar_max, cmap='turbo', transform=crs, extent=extent)
+    im3 = ax3.imshow(target_tensor, vmin=tar_min, vmax=tar_max, cmap='coolwarm', transform=crs, extent=extent)
+
+    ax1.coastlines(linewidth=0.7)
+    ax2.coastlines(linewidth=0.7)
+    ax3.coastlines(linewidth=0.7)
+    ax1.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax2.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax3.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+
+    fig.suptitle(f"{variable}-{level}")
+
+    ax1.set_title("GFS")
+    ax2.set_title("ERA")
+    ax3.set_title("Residuals")
+
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+    ax3.set_xticks([])
+    ax3.set_yticks([])
+
+    cbar1 = fig.colorbar(im1, orientation="horizontal")
+    cbar1.set_label(variable)
+    cbar1.set_ticks([cbar_min, cbar_med, cbar_max])
+
+    cbar2 = fig.colorbar(im2, orientation="horizontal")
+    cbar2.set_label(variable)
+    cbar2.set_ticks([cbar_min, cbar_med, cbar_max])
+
+    cbar3 = fig.colorbar(im3, orientation="horizontal")
+    cbar3.set_label(variable)
+    cbar3.set_ticks([tar_min, tar_med, tar_max])
+
+    plt.tight_layout()
+    
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    name = os.path.join(output_path, f"{variable}-{level}-datacheck.png")
+    plt.savefig(name, bbox_inches='tight')
+
+
+def visualize_residual_outputs(input_tensor, target_tensor, output_tensor, variable, level, batch, output_path=""):
+    crs = ccrs.PlateCarree(central_longitude=180)   
+
+    lon = np.arange(-180, 180, 0.25)
+    lat = np.arange(-90, 90, 0.25)
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
+
+    input_tensor = torch.where(torch.isnan(input_tensor), torch.tensor(0, device=input_tensor.device), input_tensor).cpu().numpy()
+    target_tensor = torch.where(torch.isnan(target_tensor), torch.tensor(0, device=target_tensor.device), target_tensor).cpu().numpy()
+    output_tensor = torch.where(torch.isnan(output_tensor), torch.tensor(0, device=output_tensor.device), output_tensor).cpu().numpy()
+
+    cbar_min = np.amin(input_tensor)
+    cbar_med = np.median(input_tensor)
+    cbar_max = np.amax(input_tensor)
+
+    tar_min = np.amin([np.amin(target_tensor), np.amin(output_tensor)])
+    tar_max = np.amax([np.amax(target_tensor), np.amax(output_tensor)])
+    tar_med = np.median([np.median(target_tensor), np.median(output_tensor)])
+
+    # print(f"{variable} - {level} Tensor Range: ", cbar_min, cbar_max)
+
+    fig = plt.figure(figsize=(12, 6))
+
+    ax1 = fig.add_subplot(1, 3, 1, projection=crs)
+    ax2 = fig.add_subplot(1, 3, 2, projection=crs)
+    ax3 = fig.add_subplot(1, 3, 3, projection=crs)
+
+    im1 = ax1.imshow(input_tensor, vmin=cbar_min, vmax=cbar_max, cmap='turbo', transform=crs, extent=extent)
+    im2 = ax2.imshow(target_tensor, vmin=tar_min, vmax=tar_max, cmap='coolwarm', transform=crs, extent=extent)
+    im3 = ax3.imshow(target_tensor, vmin=tar_min, vmax=tar_max, cmap='coolwarm', transform=crs, extent=extent)
+
+    ax1.coastlines(linewidth=0.7)
+    ax2.coastlines(linewidth=0.7)
+    ax3.coastlines(linewidth=0.7)
+    ax1.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax2.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax3.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+
+    fig.suptitle(f"{variable}-{level}")
+
+    ax1.set_title("GFS")
+    ax2.set_title("ERA5 - GFS Residuals")
+    ax3.set_title("Predicted Residuals")
+
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+    ax3.set_xticks([])
+    ax3.set_yticks([])
+
+    cbar1 = fig.colorbar(im1, orientation="horizontal")
+    cbar1.set_label(variable)
+    cbar1.set_ticks([cbar_min, cbar_med, cbar_max])
+
+    cbar2 = fig.colorbar(im2, orientation="horizontal")
+    cbar2.set_label(variable)
+    cbar2.set_ticks([tar_min, tar_med, tar_max])
+
+    cbar3 = fig.colorbar(im3, orientation="horizontal")
+    cbar3.set_label(variable)
+    cbar3.set_ticks([tar_min, tar_med, tar_max])
+
+    plt.tight_layout()
+    
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    name = os.path.join(output_path, f"residual-outputs-{variable}-L{level}-{batch}.png")
+    plt.savefig(name, bbox_inches='tight')
+
+
 if __name__ == "__main__":
     from data_download import download_era5, make_batch
 

@@ -25,22 +25,8 @@ from pytorch_msssim import MS_SSIM
 import matplotlib.pyplot as plt
 
 from data.utils import print_debug, check_gpu_memory
+from data.dataloader import ERA5_GLOBAL_RANGES, ERA5_TO_GFS, GFS_GLOBAL_RANGES
 from inference.generate_outputs import visualize_tensor
-
-ERA5_GLOBAL_RANGES = {
-    # Surface Variables
-    't2m': {'min': 170, 'max': 350},  # 2m Temperature [K]
-    'msl': {'min': 85000, 'max': 110000},  # Mean Sea Level Pressure [Pa]
-    'u10': {'min': -110, 'max': 110},  # 10m U-wind [m/s]
-    'v10': {'min': -80, 'max': 80},  # 10m V-wind [m/s]
-    
-    # Atmospheric Variables (at all pressure levels)
-    't': {'min': 160, 'max': 350},  # Temperature [K]
-    'q': {'min': 0, 'max': 0.04},  # Specific Humidity [kg/kg]
-    'u': {'min': -110, 'max': 110},  # U-wind [m/s]
-    'v': {'min': -100, 'max': 100},  # V-wind [m/s]
-    'z': {'min': -5000, 'max': 225000},  # Geopotential Height [m]
-}
 
 
 class Loss(nn.Module):
