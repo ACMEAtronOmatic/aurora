@@ -811,49 +811,75 @@ def visualize_input_era_target(input_tensor, era_tensor, target_tensor, variable
     plt.savefig(name, bbox_inches='tight')
 
 
-def visualize_residual_outputs(input_tensor, target_tensor, output_tensor, variable, level, batch, output_path=""):
+def visualize_residual_outputs(input_tensor, era_tensor, target_tensor, output_tensor, variable, level, batch, output_path=""):
     crs = ccrs.PlateCarree(central_longitude=180)   
 
     lon = np.arange(-180, 180, 0.25)
     lat = np.arange(-90, 90, 0.25)
     extent = [lon.min(), lon.max(), lat.min(), lat.max()]   
 
-    input_tensor = torch.where(torch.isnan(input_tensor), torch.tensor(0, device=input_tensor.device), input_tensor).cpu().numpy()
-    target_tensor = torch.where(torch.isnan(target_tensor), torch.tensor(0, device=target_tensor.device), target_tensor).cpu().numpy()
-    output_tensor = torch.where(torch.isnan(output_tensor), torch.tensor(0, device=output_tensor.device), output_tensor).cpu().numpy()
+    input_tensor = torch.where(torch.isnan(input_tensor), torch.tensor(0, device=input_tensor.device), input_tensor).cpu().numpy() # GFS
+    era_tensor = torch.where(torch.isnan(era_tensor), torch.tensor(0, device=era_tensor.device), era_tensor).cpu().numpy() # ERA
+    target_tensor = torch.where(torch.isnan(target_tensor), torch.tensor(0, device=target_tensor.device), target_tensor).cpu().numpy() # True Residuals
+    output_tensor = torch.where(torch.isnan(output_tensor), torch.tensor(0, device=output_tensor.device), output_tensor).cpu().numpy() # Model Residuals
 
-    cbar_min = np.amin(input_tensor)
-    cbar_med = np.median(input_tensor)
-    cbar_max = np.amax(input_tensor)
+    # Combine GFS & Model Residuals
+    composite_tensor = input_tensor + output_tensor
 
-    tar_min = np.amin([np.amin(target_tensor), np.amin(output_tensor)])
-    tar_max = np.amax([np.amax(target_tensor), np.amax(output_tensor)])
-    tar_med = np.median([np.median(target_tensor), np.median(output_tensor)])
+    full_min = np.amin([np.amin(composite_tensor), np.amin(era_tensor)])
+    full_med = np.median([np.median(composite_tensor), np.median(era_tensor)])
+    full_max = np.amax([np.amax(composite_tensor), np.amax(era_tensor)])
+
+    res_min = np.amin([np.amin(target_tensor), np.amin(output_tensor)])
+    res_med = np.median([np.median(target_tensor), np.median(output_tensor)])
+    res_max = np.amax([np.amax(target_tensor), np.amax(output_tensor)])
+
+    # Difference between the two residuals
+    diff_tensor = np.abs(target_tensor - output_tensor) / (res_max - res_min)
+    diff_med = np.median(diff_tensor)
 
     # print(f"{variable} - {level} Tensor Range: ", cbar_min, cbar_max)
 
     fig = plt.figure(figsize=(12, 6))
 
-    ax1 = fig.add_subplot(1, 3, 1, projection=crs)
-    ax2 = fig.add_subplot(1, 3, 2, projection=crs)
-    ax3 = fig.add_subplot(1, 3, 3, projection=crs)
+    ax1 = fig.add_subplot(2, 3, 1, projection=crs) # GFS
+    ax2 = fig.add_subplot(2, 3, 2, projection=crs) # ERA5
+    ax3 = fig.add_subplot(2, 3, 3, projection=crs) # Composite: GFS + Model Residuals
 
-    im1 = ax1.imshow(input_tensor, vmin=cbar_min, vmax=cbar_max, cmap='turbo', transform=crs, extent=extent)
-    im2 = ax2.imshow(target_tensor, vmin=tar_min, vmax=tar_max, cmap='coolwarm', transform=crs, extent=extent)
-    im3 = ax3.imshow(target_tensor, vmin=tar_min, vmax=tar_max, cmap='coolwarm', transform=crs, extent=extent)
+    ax4 = fig.add_subplot(2, 3, 4, projection=crs) # True Residuals
+    ax5 = fig.add_subplot(2, 3, 5, projection=crs) # Diff Residuals
+    ax6 = fig.add_subplot(2, 3, 6, projection=crs) # Model Residuals
+
+    im1 = ax1.imshow(input_tensor, vmin=full_min, vmax=full_max, cmap='turbo', transform=crs, extent=extent) # GFS
+    im2 = ax2.imshow(era_tensor, vmin=full_min, vmax=full_max, cmap='turbo', transform=crs, extent=extent) # ERA
+    im3 = ax3.imshow(composite_tensor, vmin=full_min, vmax=full_max, cmap='turbo', transform=crs, extent=extent) # Composite
+
+    im4 = ax4.imshow(target_tensor, vmin=res_min, vmax=res_max, cmap='bwr', transform=crs, extent=extent) # True Residuals
+    im5 = ax5.imshow(diff_tensor, vmin=0, vmax=1, cmap='RdPu', transform=crs, extent=extent) # Diff Residuals
+    im6 = ax6.imshow(output_tensor, vmin=res_min, vmax=res_max, cmap='bwr', transform=crs, extent=extent) # Model Residuals
 
     ax1.coastlines(linewidth=0.7)
     ax2.coastlines(linewidth=0.7)
     ax3.coastlines(linewidth=0.7)
+    ax4.coastlines(linewidth=0.7)
+    ax5.coastlines(linewidth=0.7)
+    ax6.coastlines(linewidth=0.7)
+
     ax1.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
     ax2.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
     ax3.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax4.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax5.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax6.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
 
     fig.suptitle(f"{variable}-{level}")
 
     ax1.set_title("GFS")
-    ax2.set_title("ERA5 - GFS Residuals")
-    ax3.set_title("Predicted Residuals")
+    ax2.set_title("ERA5")
+    ax3.set_title("Composite: GFS + Model Residuals")
+    ax4.set_title("True Residuals")
+    ax5.set_title("Residuals Absolute Error")
+    ax6.set_title("Model Residuals")
 
     ax1.set_xticks([])
     ax1.set_yticks([])
@@ -861,18 +887,36 @@ def visualize_residual_outputs(input_tensor, target_tensor, output_tensor, varia
     ax2.set_yticks([])
     ax3.set_xticks([])
     ax3.set_yticks([])
+    ax4.set_xticks([])
+    ax4.set_yticks([])
+    ax5.set_xticks([])
+    ax5.set_yticks([])
+    ax6.set_xticks([])
+    ax6.set_yticks([])
 
-    cbar1 = fig.colorbar(im1, orientation="horizontal")
+    cbar1 = fig.colorbar(im1, orientation="horizontal", shrink=0.6)
     cbar1.set_label(variable)
-    cbar1.set_ticks([cbar_min, cbar_med, cbar_max])
+    cbar1.set_ticks([full_min, full_med, full_max])
 
-    cbar2 = fig.colorbar(im2, orientation="horizontal")
+    cbar2 = fig.colorbar(im2, orientation="horizontal", shrink=0.6)
     cbar2.set_label(variable)
-    cbar2.set_ticks([tar_min, tar_med, tar_max])
+    cbar2.set_ticks([full_min, full_med, full_max])
 
-    cbar3 = fig.colorbar(im3, orientation="horizontal")
+    cbar3 = fig.colorbar(im3, orientation="horizontal", shrink=0.6)
     cbar3.set_label(variable)
-    cbar3.set_ticks([tar_min, tar_med, tar_max])
+    cbar3.set_ticks([full_min, full_med, full_max])
+
+    cbar4 = fig.colorbar(im4, orientation="horizontal", shrink=0.6)
+    cbar4.set_label(variable)
+    cbar4.set_ticks([res_min, res_med, res_max])
+
+    cbar5 = fig.colorbar(im5, orientation="horizontal", shrink=0.6)
+    cbar5.set_label(variable)
+    cbar5.set_ticks([0, diff_med, 1])    
+
+    cbar6 = fig.colorbar(im6, orientation="horizontal", shrink=0.6)
+    cbar6.set_label(variable)
+    cbar6.set_ticks([res_min, res_med, res_max])
 
     plt.tight_layout()
     

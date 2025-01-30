@@ -1,4 +1,5 @@
 import torch
+from pytorch_lightning.callbacks import Callback
 
 ERA5_GLOBAL_RANGES = {
     # Surface Variables
@@ -31,6 +32,42 @@ GFS_GLOBAL_RANGES = {
 }
 
 
+class UpdateMonitorCallback(Callback):
+    def __init__(self, log_every_n_steps=25):
+        super().__init__()
+        self.log_every_n_steps = log_every_n_steps
+        self.step_count = 0
+        self.param_history = {}
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.step_count += 1
+        if self.step_count % self.log_every_n_steps == 0:
+            for param_name, param in pl_module.named_parameters():
+                    if param.requires_grad:
+                        if param_name not in self.param_history:
+                            self.param_history[param_name] = param.data.clone()
+                        else:
+                            update = param.data - self.param_history[param_name]
+                            update_magnitude  = torch.norm(update).item()
+                            update_frequency = torch.count_nonzero(update).item() / update.numel()
+
+                            trainer.logger.log_metrics({
+                                f"{param_name}_update_magnitude": update_magnitude,
+                                f"{param_name}_update_frequency": update_frequency
+                            }, step=trainer.global_step)
+
+                            self.param_history[param_name] = param.data.clone()
+
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        self.step_count = 0
+        self.param_history.clear()
+
+def print_debug(debug=True, *args):
+    if debug:
+        msg = " ".join(map(str, args))
+        print(msg)
+
 def check_gpu_memory():
     if torch.cuda.is_available():
         mem = torch.cuda.get_device_properties(0).total_memory
@@ -40,13 +77,3 @@ def check_gpu_memory():
         return gb
     else:
         return None
-
-
-def print_debug(debug=True, *args):
-    if debug:
-        msg = " ".join(map(str, args))
-        print(msg)
-
-
-def normalize_tensor():
-    pass

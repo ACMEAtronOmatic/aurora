@@ -15,7 +15,7 @@ import yaml
 from argparse import ArgumentParser
 import numpy as np
 
-from data.utils import print_debug, check_gpu_memory
+from data.utils import print_debug, check_gpu_memory, UpdateMonitorCallback
 from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
 from data.dataloader import GFSDataModule, ERA5_TO_GFS
@@ -120,9 +120,7 @@ def main():
 
     # Check that the dataloader is set up correctly
     test_input, test_target = dm.train_dataset.__getitem__(0)
-    test_input, test_target = dm.train_dataset.__getitem__(1)
 
-    print("ERA5 Intact: ", dm.train_dataset.dataset.era_intact)
 
     # Generate all required mapping dictionaries
     era_idx_to_variable = dm.era_idx_to_variable
@@ -191,6 +189,11 @@ def main():
                                     use_se=True, r=8, debug=debug_model)
         print(f"Memory after Lightning Module: {check_gpu_memory():.2f} GB")
 
+        # Check that the model parameters are set up correctly for training
+        print("\nModel Parameters:")
+        for i, p in enumerate(model.named_parameters(recurse=True)):
+            print(i, p[0], p[1].shape)
+
         # Instantiate Callbacks & Loggers
         early_stop_callback = EarlyStopping(
             monitor="val_composite_loss", patience=patience, verbose=False, mode="min"
@@ -208,6 +211,8 @@ def main():
 
         tensorboard_logger = TensorBoardLogger(logs_save_path, name="gfs_converter_unet")
 
+        tensor_update_callback = UpdateMonitorCallback(log_every_n_steps=10)
+
         print_debug(debug_model, "Model Summary:")
 
         # Instantiate Trainer
@@ -215,7 +220,8 @@ def main():
             accelerator="gpu",
             devices=1,
             max_epochs=max_epochs,
-            callbacks=[early_stop_callback, checkpoint_callback, progress_callback],
+            callbacks=[early_stop_callback, checkpoint_callback,
+                        progress_callback, tensor_update_callback],
             logger=tensorboard_logger,
             log_every_n_steps=5,
         )
@@ -263,22 +269,24 @@ def main():
 
                     # Get slices
                     input_slice = input[0, gfs_channel, :, :] # GFS
-                    truth_slice = truth[0, era_channel, :, :] # True Residuals
-                    pred_slice = pred[0, era_channel, :, :] # Predicted Residuals
+                    truth_slice = truth[0, era_channel, :, :] # True Residuals or ERA5
+                    pred_slice = pred[0, era_channel, :, :] # Predicted Residuals or Predicted mock-ERA5
 
-                    print(f"\tInput Slice: {type(input_slice)}, {input_slice.shape}")
-                    print(f"\tTruth Slice: {type(truth_slice)}, {truth_slice.shape}")
-                    print(f"\tPred Slice: {type(pred_slice)}, {pred_slice.shape}")
+                    print(f"\tVariable: {v}, Level: {l}, Batch: {i}")
 
-                    # Mean & standard deviations of input  
-                    print(f"\tInput Mean: {input_slice.mean()}")
-                    print(f"\tInput Std: {input_slice.std()}")
-                    # Mean & standard deviations of predictions
-                    print(f"\tPred Mean: {pred_slice.mean()}")
-                    print(f"\tPred Std: {pred_slice.std()}")
-                    # Mean & standard deviations of truth
-                    print(f"\tTruth Mean: {truth_slice.mean()}")
-                    print(f"\tTruth Std: {truth_slice.std()}")
+                    # print(f"\tInput Slice: {type(input_slice)}, {input_slice.shape}")
+                    # print(f"\tTruth Slice: {type(truth_slice)}, {truth_slice.shape}")
+                    # print(f"\tPred Slice: {type(pred_slice)}, {pred_slice.shape}")
+
+                    # # Mean & standard deviations of input  
+                    # print(f"\tInput Mean: {input_slice.mean()}")
+                    # print(f"\tInput Std: {input_slice.std()}")
+                    # # Mean & standard deviations of predictions
+                    # print(f"\tPred Mean: {pred_slice.mean()}")
+                    # print(f"\tPred Std: {pred_slice.std()}")
+                    # # Mean & standard deviations of truth
+                    # print(f"\tTruth Mean: {truth_slice.mean()}")
+                    # print(f"\tTruth Std: {truth_slice.std()}")
 
                     # TODO: should data be denormalized before inputting into visualizations?
 
@@ -294,8 +302,9 @@ def main():
                     # TODO: need to make visualizations specific to residual model
                     else: 
                         era_slice = dm.val_dataset.dataset.era_intact[i, era_channel, :, :]
-                        visualize_residual_outputs(input_slice, truth_slice, pred_slice,
-                                                    v, l, i, output_path="testing_viz")            
+                        visualize_residual_outputs(input_tensor=input_slice, era_tensor=era_slice,
+                                                    target_tensor=truth_slice, output_tensor=pred_slice,
+                                                    variable=v, level=l, batch=i, output_path="testing_viz")            
             
 
             

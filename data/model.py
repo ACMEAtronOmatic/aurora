@@ -24,7 +24,7 @@ from pytorch_msssim import MS_SSIM
 
 import matplotlib.pyplot as plt
 
-from data.utils import print_debug, check_gpu_memory
+from data.utils import print_debug
 from data.dataloader import ERA5_GLOBAL_RANGES, ERA5_TO_GFS, GFS_GLOBAL_RANGES
 from inference.generate_outputs import visualize_tensor
 
