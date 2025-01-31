@@ -47,7 +47,7 @@ data:
       - 'surface'
     time:
       start: 2023010100
-      end: 2023013100
+      end: 2023053100
       interval: 6
       forecast_start: 0
       forecast_end: 0

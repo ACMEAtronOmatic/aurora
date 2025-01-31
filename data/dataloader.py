@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 from data.utils import print_debug, check_gpu_memory
 from data.gfs_download import download_gfs, process_gfs
-from data.era5_download import download_static_era5
+from data.era5_download import download_era5
 
 from inference.generate_outputs import visualize_input_era_target
 
@@ -66,9 +66,6 @@ ERA5_TO_GFS = {
     'v10': 'v',
     't2m': 't',
 }
-
-
-# Denote ERA5 Surface Channels, which can be roughly aligned with GFS Level 1000 channels
 
 
 def interpolate_missing_values(tensor, threshold = 0.1):
@@ -183,14 +180,14 @@ class GFSDataset(torch.utils.data.Dataset):
         era5_download_path = config['data']['era5']['download_path']
         static_tag = config['data']['era5']['static_tag']
         year = config['data']['era5']['year']
-        month = config['data']['era5']['month']
-        days = config['data']['era5']['days']
+        months = config['data']['era5']['month']
+        start_day, end_day = config['data']['era5']['days']
 
         self.gfs_path = os.path.join(arch_dir, f"gfs_{start}_{end}.nc")
 
         self.static_path = f"{era5_download_path}/static_{static_tag}.nc"
-        self.surface_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_surface.nc"
-        self.atmos_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_atmospheric.nc"
+        self.surface_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_surface.nc"
+        self.atmos_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_atmospheric.nc"
 
         # Load the datasets
         self.gfs = xr.open_dataset(self.gfs_path, engine="netcdf4")
@@ -520,10 +517,19 @@ class GFSDataModule(pl.LightningDataModule):
         start = self.configs['data']['gfs']['time']['start']
         end = self.configs['data']['gfs']['time']['end']
         archDir = self.configs['data']['gfs']['archive']
+
+        era5_download_path = self.configs['data']['era5']['download_path']
+        year = self.configs['data']['era5']['year']
+        months = self.configs['data']['era5']['month']
+        start_day, end_day = self.configs['data']['era5']['days']
+
         static_tag = self.configs['data']['era5']['static_tag']
 
         self.gfs_path = os.path.join(archDir, f"gfs_{start}_{end}.nc")
-        self.static_path = f"{archDir}/static_{static_tag}.nc"
+
+        self.static_path = f"{era5_download_path}/static_{static_tag}.nc"
+        self.surface_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_surface.nc"
+        self.atmos_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_atmospheric.nc"
 
 
 
@@ -540,10 +546,11 @@ class GFSDataModule(pl.LightningDataModule):
             print_debug(self.debug, "Processed GFS Data for this time range found")
 
 
-        if not os.path.exists(self.static_path):
-            # Download ERA5 static data if it is not already downloaded
-            print_debug(self.debug, "Downloading ERA5 Static Data: ", self.static_path)
-            download_static_era5(self.configs['data']['gfs'])
+
+        print_debug(self.debug, "Downloading ERA5 Data: ")
+
+        # Automatically checks for existing data
+        download_era5(self.configs['data']['era5'])
 
         print(f"Memory after Preparing Data: {check_gpu_memory():.2f} GB")
 

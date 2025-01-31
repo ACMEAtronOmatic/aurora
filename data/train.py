@@ -42,14 +42,14 @@ def download_process_data(config):
     era5_download_path = config['data']['era5']['download_path']
     static_tag = config['data']['era5']['static_tag']
     year = config['data']['era5']['year']
-    month = config['data']['era5']['month']
-    days = config['data']['era5']['days']
+    months = config['data']['era5']['month']
+    start_day, end_day = config['data']['era5']['days']
 
     gfs_path = os.path.join(arch_dir, f"gfs_{start}_{end}.nc")
 
     static_path = f"{era5_download_path}/static_{static_tag}.nc"
-    surface_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_surface.nc"
-    atmos_path = f"{era5_download_path}/{year}_{month:02d}_{days[0]:02d}-{days[-1]:02d}_atmospheric.nc"
+    surface_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_surface.nc"
+    atmos_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_atmospheric.nc"
 
     # GFS can already download a defined time range
     if not os.path.exists(gfs_path):
@@ -109,6 +109,7 @@ def main():
         os.makedirs(logs_save_path)
 
     # Download GFS and ERA5 data
+    # TODO: is this being done successfully in the dataloader instead of here?
     download_process_data(config)
 
     # Instantiate dataloader
