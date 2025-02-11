@@ -271,8 +271,11 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
     # Check if the processed gfs data already exists in the archive folder
     if os.path.exists(os.path.join(archDir, f"gfs_{start}_{end}.nc")):
-        print("Processed GFS data already found")
+        print(f"Processed GFS {f"gfs_{start}_{end}.nc"} data already found")
         return
+    
+    if not os.path.isdir(archDir):
+        os.mkdir(archDir)
 
     sdtg = datetime.strptime(str(config['time']['start']), '%Y%m%d%H')
     edtg = datetime.strptime(str(config['time']['end']), '%Y%m%d%H')
@@ -291,7 +294,6 @@ def download_gfs(config, nproc = 4, noclobber = False):
 
     gfs_data_missing = False
     for d in all_dir_paths:
-        print(d)
         if not os.path.isdir(d):
             print(f"At least one day of GFS data '{d}' is missing. Downloading...")
             gfs_data_missing = True
@@ -311,6 +313,7 @@ def process_gfs(config):
     data_path = Path(config['archive'])
     start_date = config['time']['start']
     end_date = config['time']['end']
+    delete_raw = config['delete_raw']
 
     add_derived_gfs_fields = config['add_derived_gfs_fields']
 
@@ -338,23 +341,23 @@ def process_gfs(config):
     print("Pressures: ", pressures)
     print("Var: ", varList)
 
-    print("\nOpening whole dataset...")
+    print("\nOpening whole GFS dataset...")
 
     try:
         ds = xr.open_mfdataset(gribFiles, concat_dim = 'time', combine = 'nested',  engine = 'cfgrib',  parallel = True)
     except:
-        raise Exception(f"Failed to open dataset with xr.open_mfdataset")
+        print(f"Failed to open dataset with xr.open_mfdataset")
     
-    try:
-        datasets = []
-        for file in gribFiles:
-                ds = xr.open_dataset(file)
-                datasets.append(ds)
+        try:
+            datasets = []
+            for file in gribFiles:
+                    ds = xr.open_dataset(file)
+                    datasets.append(ds)
 
-        ds = xr.concat(datasets, dim='time')
-    except:
-        print(f"Failed to open dataset with xr.open_dataset")
-        exit(0)
+            ds = xr.concat(datasets, dim='time')
+        except:
+            print(f"Failed to open dataset with xr.open_dataset")
+            exit(0)
 
 
     # Calculate derived variables
@@ -369,6 +372,19 @@ def process_gfs(config):
 
     print("New GFS Vars: ", varList)
     print("Saved to: ", save_path)
+
+    if delete_raw:
+        print("Deleting raw GFS directories...")
+
+        sdtg = datetime.strptime(str(config['time']['start']), '%Y%m%d%H')
+        edtg = datetime.strptime(str(config['time']['end']), '%Y%m%d%H')
+        interval = int(config['time']['interval'])
+
+        dtgrange = datetime_range(sdtg, edtg, interval*3600)
+        all_dir_paths = [os.path.join(data_path, d.strftime('%Y%m%d')) for d in dtgrange]
+
+        for gfs_dir in all_dir_paths:
+            os.rmdir(gfs_dir)
 
     return save_path
 

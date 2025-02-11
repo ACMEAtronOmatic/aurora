@@ -180,7 +180,7 @@ class GFSDataset(torch.utils.data.Dataset):
         era5_download_path = config['data']['era5']['download_path']
         static_tag = config['data']['era5']['static_tag']
         year = config['data']['era5']['year']
-        months = config['data']['era5']['month']
+        months = config['data']['era5']['months']
         start_day, end_day = config['data']['era5']['days']
 
         self.gfs_path = os.path.join(arch_dir, f"gfs_{start}_{end}.nc")
@@ -194,6 +194,9 @@ class GFSDataset(torch.utils.data.Dataset):
         self.times = self.gfs.time.values
         self.levels = self.gfs.level.values
 
+        # Print the time range of the datasets
+        print("GFS Time Range: ", self.times[0], " to ", self.times[-1])
+
         era_static = xr.open_dataset(self.static_path, engine="netcdf4").isel(time=0) # load into tensor
         self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
 
@@ -206,6 +209,9 @@ class GFSDataset(torch.utils.data.Dataset):
         self.era_atmos_channels = list(self.era_atmos.data_vars.keys())
         self.era_surface_channels = list(self.era_surface.data_vars.keys())
         self.era_static_channels = list(era_static.data_vars.keys())
+
+        # Print ERA time range
+        print("ERA Time Range: ", self.era_surface.time.values[0], " to ", self.era_surface.time.values[-1])
 
         self.gfs_atmos_levels = list(self.gfs.level.values)
         self.gfs_atmos_levels = [int(level) for level in self.gfs_atmos_levels]
@@ -520,7 +526,7 @@ class GFSDataModule(pl.LightningDataModule):
 
         era5_download_path = self.configs['data']['era5']['download_path']
         year = self.configs['data']['era5']['year']
-        months = self.configs['data']['era5']['month']
+        months = self.configs['data']['era5']['months']
         start_day, end_day = self.configs['data']['era5']['days']
 
         static_tag = self.configs['data']['era5']['static_tag']

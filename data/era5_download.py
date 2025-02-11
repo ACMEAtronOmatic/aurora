@@ -61,6 +61,7 @@ def download_era5(configs):
     YEAR = configs['year']
     MONTHS = configs['months']
     start_day, end_day = configs['days'] # inclusive or exclusive?
+    delete_raw = configs['delete_raw']
 
     # Static variables only need one time step
     # Surface & Atmospheric Variables must be at every time step
@@ -79,9 +80,14 @@ def download_era5(configs):
         os.path.exists(processed_surface_path) and \
             os.path.exists(processed_atmos_path):
         return processed_static_path, processed_surface_path, processed_atmos_path
+    
+    if not os.path.isdir(DOWNLOAD_PATH):
+        os.mkdir(DOWNLOAD_PATH)
 
     # else instantiate the api client
+    print("Instantiating API Client...")
     c = cdsapi.Client()
+    print("API Client Instantiated!")
 
     if not os.path.exists(processed_static_path):
 
@@ -99,6 +105,16 @@ def download_era5(configs):
             str(static_path),
         )
     print("Static variables downloaded!")
+
+    print("Attempting Download: ",             {
+                "product_type": "reanalysis",
+                "variable": [v for v in SURFACE_VARIABLES],
+                "year": str(YEAR),
+                "month": [str(m).zfill(2) for m in MONTHS],
+                "day": [str(d).zfill(2) for d in range(start_day, end_day + 1)],
+                "time": [f"{h:02d}:00" for h in range(0, 24, time_interval)],
+                "format": "netcdf",
+            },)
 
     # Download the surface-level variables.
     if not os.path.exists(processed_surface_path):
@@ -153,6 +169,12 @@ def download_era5(configs):
     print("ERA Atmos Shape: ", {dim: atmos_ds.sizes[dim] for dim in atmos_ds.dims})
     atmos_ds = atmos_ds.rename({"valid_time": "time", "pressure_level": "level"})
     atmos_ds.to_netcdf(processed_atmos_path)
+
+    if delete_raw:
+        print("Deleting raw ERA5data...")
+        os.remove(static_path)
+        os.remove(surface_path)
+        os.remove(atmos_path)
 
     return processed_static_path, processed_surface_path, processed_atmos_path
 

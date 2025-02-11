@@ -4,7 +4,8 @@ data:
   interpolate: true
   residuals: true
   era5:
-    download_path: "downloads"
+    download_path: "/ssd0/data/aurora_data"
+    delete_raw: false
     static_variables: ["geopotential", "land_sea_mask", "soil_type"]
     static_tag: gls
     surface_variables: ["10m_u_component_of_wind", "10m_v_component_of_wind", "2m_temperature", "mean_sea_level_pressure"]
@@ -12,10 +13,11 @@ data:
     pressures: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
     time_interval: 6
     year: 2023
-    month: 1
+    months: [1, 2]
     days: [1, 31]
   gfs:
     add_derived_gfs_fields: false
+    delete_raw: false
     atmo: &atmo_levels
       - '50 mb'
       - '100 mb'
@@ -47,12 +49,12 @@ data:
       - 'surface'
     time:
       start: 2023010100
-      end: 2023053100
+      end: 2023022800
       interval: 6
       forecast_start: 0
       forecast_end: 0
       forecast_interval: 1
-    archive: 'downloads'
+    archive: '/ssd0/data/aurora_data'
     variables:
       TMP: *atmo_levels
       UGRD: *atmo_levels

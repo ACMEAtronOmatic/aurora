@@ -42,7 +42,7 @@ def download_process_data(config):
     era5_download_path = config['data']['era5']['download_path']
     static_tag = config['data']['era5']['static_tag']
     year = config['data']['era5']['year']
-    months = config['data']['era5']['month']
+    months = config['data']['era5']['months']
     start_day, end_day = config['data']['era5']['days']
 
     gfs_path = os.path.join(arch_dir, f"gfs_{start}_{end}.nc")
@@ -54,6 +54,7 @@ def download_process_data(config):
     # GFS can already download a defined time range
     if not os.path.exists(gfs_path):
         # Download GFS data if it is not already downloaded
+        print("Did not find processed GFS data that covers this specific time range")
         download_gfs(config['data']['gfs'])
 
         # Process GFS data
@@ -64,6 +65,7 @@ def download_process_data(config):
 
     # TODO: update ERA5 to download data for a defined time range
     if not os.path.exists(static_path) or not os.path.exists(surface_path) or not os.path.exists(atmos_path):
+        print("At least one ERA file for this time range was missing")
         static_path, surface_path, atmos_path = download_era5(config['data']['era5'])
     else:
         print("ERA5 Data for this time range found")
@@ -110,6 +112,7 @@ def main():
 
     # Download GFS and ERA5 data
     # TODO: is this being done successfully in the dataloader instead of here?
+    print("Checking for existing data...")
     download_process_data(config)
 
     # Instantiate dataloader
