@@ -3,6 +3,7 @@ data:
   normalize: true
   interpolate: true
   residuals: true
+  chunks: 12
   era5:
     download_path: "/ssd0/data/aurora_data"
     delete_raw: false
@@ -77,7 +78,7 @@ inference:
   logs_path: "gfs_converter_logs"
   feature_dims: [128, 256]
   batch_size: 1
-  debug_data: false
+  debug_data: true
   debug_model: false
   patience: 10
   max_epochs: 50

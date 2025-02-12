@@ -110,7 +110,7 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             plt.savefig(f"temporary_{i}.jpg", bbox_inches='tight')
             images.append(f"temporary_{i}.jpg")
             # Clear the current figure
-            plt.close()  
+            plt.close('all')
 
 
 
@@ -147,7 +147,7 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             plt.savefig(f"temporary_{i}.jpg", bbox_inches='tight')
             images.append(f"temporary_{i}.jpg")
             # Clear the current figure
-            plt.close()        
+            plt.close('all')
 
     # Read first image to get dimensions
     frame = cv2.imread(images[0])
@@ -344,7 +344,7 @@ def visualize_gfs_era5(era5_data, gfs_data, steps=28, variable="wind", output_pa
         plt.savefig(plot_path, bbox_inches='tight')
         images.append(plot_path)
         # Clear the current figure
-        plt.close()  
+        plt.close('all')
 
 
     # Read first image to get dimensions
@@ -435,11 +435,8 @@ def visualize_tensor(tensor, channel, channel_mapper, output_path="", format='mp
     name = os.path.join(output_path, f"C{channel}-{variable}-{level}")
     plt.savefig(name, bbox_inches='tight')
     # images.append(temp)
-    # plt.close()
+    plt.close('all')
 
-
-    # output_file = os.path.join(output_path, f"tensor_{variable}.mp4")
-    # generate_mp4(images, output_file, format=format, fps=fps)
 
 
 def generate_mp4(images, output_path, fps=6, format='mp4'):
@@ -541,7 +538,8 @@ def compare_all_tensors(gfs_tensor, era_tensor, output_tensor,
 
     name = os.path.join(output_path, f"C{channel}-{variable}-{level}")
     plt.savefig(name, bbox_inches='tight')
-    
+    plt.close('all')
+
 
 def compare_all_tensors_spectral(gfs_tensor, era_tensor, output_tensor,
                          channel, variable, level, output_path="",
@@ -594,6 +592,8 @@ def compare_all_tensors_spectral(gfs_tensor, era_tensor, output_tensor,
     fig_comp.suptitle(f"Spherical Harmonics Comparisons Between Outputs v. ERA5 for C{channel}-{variable}-{level} Datasets")
 
     fig_comp.savefig(f"testing_viz/coeffs_comparison_{channel}_{variable}_{level}.png")
+
+    plt.close('all')
 
     # # CRPS for output and ERA5
     # output_xr = xr.DataArray(data=valid_output)
@@ -677,6 +677,8 @@ def visualize_residuals(gfs_tensor, era_tensor, output_tensor,
 
     name = os.path.join(output_path, f"all_datasets_c{channel}-{variable}-{level}.png")
     plt.savefig(name, bbox_inches='tight')
+    plt.close('all')
+
 
 
 def visualize_input_target(input_tensor, target_tensor, variable, level, output_path=""):
@@ -737,6 +739,7 @@ def visualize_input_target(input_tensor, target_tensor, variable, level, output_
 
     name = os.path.join(output_path, f"{variable}-{level}-datacheck.png")
     plt.savefig(name, bbox_inches='tight')
+    plt.close('all')
 
 
 def visualize_input_era_target(input_tensor, era_tensor, target_tensor, variable, level, output_path=""):
@@ -809,6 +812,7 @@ def visualize_input_era_target(input_tensor, era_tensor, target_tensor, variable
 
     name = os.path.join(output_path, f"{variable}-{level}-datacheck.png")
     plt.savefig(name, bbox_inches='tight')
+    plt.close('all')
 
 
 def visualize_residual_outputs(input_tensor, era_tensor, target_tensor, output_tensor, variable, level, batch, output_path=""):
@@ -925,6 +929,7 @@ def visualize_residual_outputs(input_tensor, era_tensor, target_tensor, output_t
 
     name = os.path.join(output_path, f"residual-outputs-{variable}-L{level}-{batch}.png")
     plt.savefig(name, bbox_inches='tight')
+    plt.close('all')
 
 
 if __name__ == "__main__":

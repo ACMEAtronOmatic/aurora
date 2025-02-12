@@ -18,7 +18,7 @@ import numpy as np
 from data.utils import print_debug, check_gpu_memory, UpdateMonitorCallback
 from data.era5_download import download_era5, make_batch
 from data.gfs_download import download_gfs, process_gfs
-from data.dataloader import GFSDataModule, ERA5_TO_GFS
+from data.dataloader import WeatherDataModule, ERA5_TO_GFS
 from data.model import LightningGFSUnbiaser
 
 from inference.generate_outputs import compare_all_tensors,\
@@ -117,7 +117,7 @@ def main():
 
     # Instantiate dataloader
     print(f"Memory Available before DataLoader: {check_gpu_memory():.2f} GB")
-    dm = GFSDataModule(config, batch_size=batch_size, debug=debug_data)
+    dm = WeatherDataModule(config, batch_size=batch_size, debug=debug_data)
     dm.prepare_data()
     dm.setup()
     print(f"Memory Available after DataLoader: {check_gpu_memory():.2f} GB")

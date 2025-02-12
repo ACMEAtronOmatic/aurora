@@ -1,5 +1,6 @@
 import math
 import os
+import dask
 
 import numpy as np
 import pytorch_lightning as pl
@@ -150,7 +151,7 @@ def denormalize_tensor(tensor, var, dataset='GFS'):
 
     return tensor
 
-class GFSDataset(torch.utils.data.Dataset):
+class XarrayDataset(torch.utils.data.Dataset):
     '''
     Torch Dataset for the GFS Unbiasing UNet. 
     Input data is GFS surface and atmospheric variables at defined levels
@@ -172,6 +173,7 @@ class GFSDataset(torch.utils.data.Dataset):
         self.normalize = config['data']['normalize']
         self.interpolate = config['data']['interpolate']
         self.residuals = config['data']['residuals']
+        self.chunks = {'time': config['data']['chunks']}
 
         start = config['data']['gfs']['time']['start']
         end = config['data']['gfs']['time']['end']
@@ -190,18 +192,31 @@ class GFSDataset(torch.utils.data.Dataset):
         self.atmos_path = f"{era5_download_path}/y{year}_m{months[0]:02d}-{months[-1]:02d}_d{start_day:02d}-{end_day:02d}_atmospheric.nc"
 
         # Load the datasets
-        self.gfs = xr.open_dataset(self.gfs_path, engine="netcdf4")
+        # NOTE: loading in chunks of consecutive time steps
+
+        self.gfs = xr.open_dataset(self.gfs_path, engine="netcdf4", chunks=self.chunks)
+        # self.gfs = xr.open_dataset(self.gfs_path, engine="netcdf4")
+
+        print_debug(self.debug, f"GFS Chunks: {self.gfs.chunks}")
+
         self.times = self.gfs.time.values
         self.levels = self.gfs.level.values
 
         # Print the time range of the datasets
-        print("GFS Time Range: ", self.times[0], " to ", self.times[-1])
+        print_debug(self.debug, f"GFS Time Range: {self.times[0]} to {self.times[-1]}")
 
-        era_static = xr.open_dataset(self.static_path, engine="netcdf4").isel(time=0) # load into tensor
+        # Load/compute only the first time step
+        era_static = xr.open_dataset(self.static_path, engine="netcdf4").isel(time=0).compute() # load into tensor
+        # era_static = xr.open_dataset(self.static_path, engine="netcdf4").isel(time=0)
         self.era_static_tensor = torch.from_numpy(era_static.to_array().values).to(dtype=torch.float32)
 
-        self.era_surface = xr.open_dataset(self.surface_path, engine="netcdf4")
-        self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")
+        self.era_surface = xr.open_dataset(self.surface_path, engine="netcdf4", chunks=self.chunks)
+        self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4", chunks=self.chunks)
+        # self.era_surface = xr.open_dataset(self.surface_path, engine="netcdf4")
+        # self.era_atmos = xr.open_dataset(self.atmos_path, engine="netcdf4")       
+
+        print_debug(self.debug, f"ERA Surface Chunks: {self.era_surface.chunks}")
+        print_debug(self.debug, f"ERA Atmos Chunks: {self.era_atmos.chunks}") 
 
         # Get levels and number of channels for the atmos dataset, channels from the surface dataset
         self.era_atmos_levels = list(self.era_atmos.level.values)
@@ -211,7 +226,7 @@ class GFSDataset(torch.utils.data.Dataset):
         self.era_static_channels = list(era_static.data_vars.keys())
 
         # Print ERA time range
-        print("ERA Time Range: ", self.era_surface.time.values[0], " to ", self.era_surface.time.values[-1])
+        print_debug(self.debug, f"ERA Time Range: {self.era_surface.time.values[0]} to {self.era_surface.time.values[-1]}")
 
         self.gfs_atmos_levels = list(self.gfs.level.values)
         self.gfs_atmos_levels = [int(level) for level in self.gfs_atmos_levels]
@@ -321,7 +336,10 @@ class GFSDataset(torch.utils.data.Dataset):
         # Return data at all levels and all variables
         # Assume that time steps across ERA and GFS are aligned
 
-        gfs_slice = self.gfs_atmos.isel(time=index)
+        # TODO: check if it is necessary to compute the GFS slice
+        gfs_slice = self.gfs_atmos.isel(time=index).compute()
+        # gfs_slice = self.gfs_atmos.isel(time=index)
+
 
         # Print the order of the variables in gfs slice
         for i, var in enumerate(gfs_slice.data_vars.keys()):
@@ -361,8 +379,10 @@ class GFSDataset(torch.utils.data.Dataset):
 
         self.input_shape = input_tensor.shape
 
-        era_surface_slice = self.era_surface.isel(time=index)
-        era_atmos_slice = self.era_atmos.isel(time=index)
+        era_surface_slice = self.era_surface.isel(time=index).compute()
+        era_atmos_slice = self.era_atmos.isel(time=index).compute()
+        # era_surface_slice = self.era_surface.isel(time=index)
+        # era_atmos_slice = self.era_atmos.isel(time=index)
 
         # Print the order of the variables in era slice
         for i, var in enumerate(era_surface_slice.data_vars.keys()):
@@ -492,7 +512,7 @@ class GFSDataset(torch.utils.data.Dataset):
 
                 gfs_index = self.gfs_variable_to_idx[(var, level)]
 
-                # Subtract this GFS channel from the ERA5 data
+                # Subtract this GFS channel from the ERA5 data 
                 residual_tensor[i, :, :] = truth_tensor[i, :, :] - input_tensor[gfs_index, :, :]
 
                 if self.debug:
@@ -508,7 +528,7 @@ class GFSDataset(torch.utils.data.Dataset):
         return input_tensor, truth_tensor
 
 
-class GFSDataModule(pl.LightningDataModule):
+class WeatherDataModule(pl.LightningDataModule):
     '''
     Should the data module download ERA5 data as well?
     '''
@@ -562,7 +582,7 @@ class GFSDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
-        gfs_dataset = GFSDataset(config=self.configs, debug=self.debug)
+        gfs_dataset = XarrayDataset(config=self.configs, debug=self.debug)
         training_size = math.floor(len(gfs_dataset) * self.train_size)
         val_size = len(gfs_dataset) - training_size
 
