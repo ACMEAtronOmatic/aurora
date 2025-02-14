@@ -11,31 +11,11 @@ from inference.generate_outputs import generate_outputs, \
           gfs_comparison, visualize_gfs_era5, \
           visualize_tensor
 from inference.check_configs import check_configs
-from data.dataloader import GFSDataset, GFSDataModule, CHANNEL_MAP, LEVEL_MAP
+from data.dataloader import XarrayDataset, WeatherDataModule
 from aurora import Aurora
 
 # If using MPS, some operations not yet implemented
 # os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = 1
-
-# gfs_dict = {
-#     "wind": ['u', 'v'],
-#     "temp": ['t']
-# }
-# era_dict = {
-#     "wind": {
-#         "surface": ['u10', 'v10'],
-#         "atmo": ['u', 'v']
-#     },
-#     "temp": {
-#         "surface": ['t2m'],
-#         "atmo": ['t']
-#     }
-# }
-# aurora_dict = {
-#     "wind": ['u', 'v'],
-#     "temp": ['2t']
-# }
-
 
 
 def main():
@@ -55,7 +35,6 @@ def main():
 
     with open(args.yaml_file, 'r') as file:
         config = yaml.safe_load(file)
-        print(config)
         # TODO: add GFS data checks to the config_checker
         # config = check_configs(config)
         print("Configs loaded!")
@@ -83,7 +62,6 @@ def main():
 
     era_level = "surface" if level==1000 else level
     print("ERA5 Level: ", era_level)
-    # era_variable = era_dict[config['inference']['variable']][era_level if era_level == "surface" else "atmo"]
 
     if visualize:
         era_data = surface_path if era_level == "surface" else atmos_path
@@ -123,25 +101,9 @@ def main():
         
         # Test torch dataset
         print("Testing torch dataset...")
-        torch_ds = GFSDataset(config=config)
+        torch_ds = XarrayDataset(config=config)
 
         input, truth = torch_ds.__getitem__(0)
-
-        # [channel, level, lat, lon]
-        # for var in CHANNEL_MAP.keys():
-        #     visualize_tensor(torch_tensor, output_path=archDir, variable=var, format="mp4", fps=4)
-
-        exit(0)
-
-        # gfs_ds = GFSDataModule(configs=config)
-        # gfs_ds.prepare_data()
-        # gfs_ds.setup()
-
-        # batch = next(iter(gfs_ds.train_dataloader()))
-
-        # print(batch)
-        
-        exit(0)
 
     
     # Create batch, (step - 1) >= 0

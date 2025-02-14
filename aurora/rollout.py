@@ -29,10 +29,12 @@ def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, N
     batch = batch.crop(model.patch_size)
     batch = batch.to(p.device)
 
-    for _ in range(steps):
+    for i in range(steps):
         pred = model.forward(batch)
 
         yield pred
+
+        print(f"Rollout {i} complete...")
 
         # Add the appropriate history so the model can be run on the prediction.
         batch = dataclasses.replace(
