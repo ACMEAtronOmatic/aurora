@@ -42,8 +42,8 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             ax2 = fig.add_subplot(1, 2, 2, projection=crs) # pred
             ax2.set_aspect('auto')
 
-            if variable == "2t":
-                temp_truth = np.array(comparison_data["t2m"][i])
+            if variable == "t":
+                temp_truth = np.array(comparison_data["t"][i])
                 temp_pred = pred.surf_vars["2t"][0, 0].numpy()
 
                 print("Temp Range: ", np.min(temp_truth), np.max(temp_truth))
@@ -119,7 +119,7 @@ def visualize_outputs(preds, steps=28, output_path="", fps=6, variable="2t", for
             ax = fig.add_subplot(1, 1, 1, projection=crs)
             ax.set_aspect('auto')
 
-            if variable == "2t":
+            if variable == "t":
                 ax.imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50, cmap='turbo', transform=crs, extent=extent)
 
             elif variable == "wind":
@@ -197,7 +197,7 @@ def era5_comparison(data_path, steps=28, variable="temp", level="surface"):
         if variable == "wind":
             data['u'] = ds['u10'].values[:steps]
             data['v'] = ds['v10'].values[:steps]
-        elif variable == "temp":
+        elif variable == "t":
             data['t'] = ds['t2m'].values[:steps]
         elif variable == "msl":
             data['msl'] = ds['msl'].values[:steps]

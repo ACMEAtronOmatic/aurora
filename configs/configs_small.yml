@@ -14,8 +14,8 @@ data:
     pressures: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
     time_interval: 6
     year: 2023
-    months: [1, 4]
-    days: [1, 31]
+    months: [1, 1]
+    days: [1, 7]
   gfs:
     add_derived_gfs_fields: false
     delete_raw: true
@@ -50,7 +50,7 @@ data:
       - 'surface'
     time:
       start: 2023010100
-      end: 2023043000
+      end: 2023010700
       interval: 6
       forecast_start: 0
       forecast_end: 0
@@ -73,7 +73,7 @@ inference:
   model: "microsoft/aurora"
   checkpoint: "aurora-0.25-pretrained.ckpt"
   use_lora: false
-  steps: 28
+  steps: 2
   save_path: "gfs_converter_ckpt"
   logs_path: "gfs_converter_logs"
   feature_dims: [128, 256]

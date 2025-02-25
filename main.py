@@ -128,6 +128,11 @@ def main():
     preds = generate_outputs(model, batch, steps=steps, device=device)
     print("Outputs generated!")
 
+    print(type(preds), type(preds[0]))
+    print(preds[0].surf_vars.keys())
+    print(preds[0].atmos_vars.keys())
+    print(preds[0].static_vars.keys())
+
     print("Visualizing...")
     visualize_outputs(preds, steps=steps, variable=variable, comparison_data=era5_baseline)
     print("Visualizations created!")

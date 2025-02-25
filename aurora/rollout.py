@@ -32,6 +32,8 @@ def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, N
     for i in range(steps):
         pred = model.forward(batch)
 
+        print(f"Step {i} / {steps}")
+
         yield pred
 
         print(f"Rollout {i} complete...")
