@@ -38,3 +38,4 @@ gfs_converter_ckpt
 testing_viz
 *.out
 *.log
+rgb_images

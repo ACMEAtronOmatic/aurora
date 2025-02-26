@@ -189,6 +189,9 @@ def make_batch(static_path, surface_path, atmos_path, step):
     surface_ds = xr.open_dataset(surface_path, engine="netcdf4")
     atmos_ds = xr.open_dataset(atmos_path, engine="netcdf4")
 
+    print("Batch with presure levels: ", tuple(int(level) for level in atmos_ds.level.values))
+    print("Batch at time: ", (surface_ds.time.values.astype("datetime64[s]").tolist()[step],))
+
     batch = Batch(
         surf_vars={
             # First select time points `i` and `i - 1`. Afterwards, `[None]` inserts a
