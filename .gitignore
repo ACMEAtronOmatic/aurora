@@ -39,3 +39,5 @@ testing_viz
 *.out
 *.log
 rgb_images
+*.h5
+*.png

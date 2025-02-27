@@ -1,0 +1,90 @@
+---
+data:
+  normalize: true
+  interpolate: true
+  residuals: true
+  chunks: 50
+  era5:
+    download_path: "/ssd0/data/aurora_data"
+    delete_raw: true
+    static_variables: ["geopotential", "land_sea_mask", "soil_type"]
+    static_tag: gls
+    surface_variables: ["10m_u_component_of_wind", "10m_v_component_of_wind", "2m_temperature", "mean_sea_level_pressure"]
+    atmo_variables: ["temperature", "u_component_of_wind", "v_component_of_wind", "specific_humidity", "geopotential"]
+    pressures: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+    time_interval: 6
+    year: 2023
+    months: [1, 1]
+    days: [1, 7]
+  gfs:
+    add_derived_gfs_fields: false
+    delete_raw: true
+    atmo: &atmo_levels
+      - '50 mb'
+      - '100 mb'
+      - '150 mb'
+      - '200 mb'
+      - '250 mb'
+      - '300 mb'
+      - '400 mb'
+      - '500 mb'
+      - '600 mb'
+      - '700 mb'
+      - '850 mb'
+      - '925 mb'
+      - '1000 mb'
+    all_levels: &all_levels
+      - '50 mb'
+      - '100 mb'
+      - '150 mb'
+      - '200 mb'
+      - '250 mb'
+      - '300 mb'
+      - '400 mb'
+      - '500 mb'
+      - '600 mb'
+      - '700 mb'
+      - '850 mb'
+      - '925 mb'
+      - '1000 mb'
+      - 'surface'
+    time:
+      start: 2023010100
+      end: 2023010700
+      interval: 6
+      forecast_start: 0
+      forecast_end: 0
+      forecast_interval: 1
+    archive: '/ssd0/data/aurora_data'
+    variables:
+      TMP: *atmo_levels
+      UGRD: *atmo_levels
+      VGRD: *atmo_levels
+      RH: *atmo_levels
+      SPFH: *atmo_levels
+      MSLET:
+        - 'mean sea level'
+      SOTYP:
+        - 'surface'
+      HGT: *all_levels
+      LAND:
+        - 'surface'
+inference:
+  model: "microsoft/aurora"
+  checkpoint: "aurora-0.25-pretrained.ckpt"
+  use_lora: false
+  steps: 2
+  save_path: "gfs_converter_ckpt"
+  logs_path: "gfs_converter_logs"
+  feature_dims: [128, 256]
+  batch_size: 1
+  debug_data: true
+  debug_model: false
+  patience: 10
+  max_epochs: 50
+  variable: "t"
+  level: 500
+  mae_weight: 0.6
+  mse_weight: 0.1
+  ssim_weight: 0.3
+  interpolation_file: "/hdd0/staging/gfs-zoom-7-interpolation/gfs_to_z7_regridder-bilinear.nc"
