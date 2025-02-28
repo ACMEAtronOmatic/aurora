@@ -163,7 +163,7 @@ if __name__ == '__main__':
     print("Lat Range: ", type(ds['latitude'].min().values), ds['latitude'].min().values, " - to - ", ds['latitude'].max().values)
     print("Lon Range: ", type(ds['longitude'].min().values), ds['longitude'].min().values, " - to - ", ds['longitude'].max().values)
     print("Time Range: ", type(ds['time'].min().values), ds['time'].min().values, " - to - ", ds['time'].max().values)
-    print("Level Range: ", type(ds['level'].min().values), ds['level'].min().values, " - to - ", ds['level'].max().values)
+    print("Levels: ", ds['level'].values)
 
     # Print name and shape of each variable
     print("Variables: ")
@@ -179,11 +179,15 @@ if __name__ == '__main__':
     # print("Lons: ", lons)
 
     # Extract only CONUS data from the xarray dataset
-    minLat = 50.0
+    minLat = 55.0
     maxLat = 20.0
-    minLon = 55.0
-    maxLon = 115.0 
-    midLon = 0.0
+    minLon = 180.0
+    maxLon = 360.0
+
+    ds = ds.sel(latitude=slice(minLat, maxLat), longitude=slice(minLon, maxLon))
+
+    print("New Lat Range: ", type(ds['latitude'].min().values), ds['latitude'].min().values, " - to - ", ds['latitude'].max().values)
+    print("New Lon Range: ", type(ds['longitude'].min().values), ds['longitude'].min().values, " - to - ", ds['longitude'].max().values)
 
     # Plot plot some variables as a sanity check
     for v in ['atmos_v', 'surf_2t', 'static_z']:
@@ -195,8 +199,13 @@ if __name__ == '__main__':
         if 'level' in ds[v].dims:
             for l in [1000, 700, 300]:
                 plot_xr(ds, var=v, level=l)
+                plot_xr(ds, var=v, level=l, with_crs=False)
         else:
             plot_xr(ds, var=v)
+            plot_xr(ds, var=v, with_crs=False)
+
+
+
 
     # tile_into_folders(serve_dir, noun, timestamp, image)
 

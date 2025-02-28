@@ -45,9 +45,7 @@ for i, color in enumerate(rain_colors):
     rain_palette[i] = RGBAfromColor(color)
 
 
-def plot_xr(xr_data : xr.Dataset, var : str, level : int = None):
-    crs = ccrs.PlateCarree(central_longitude=0.0)
-
+def plot_xr(xr_data : xr.Dataset, var : str, level : int = None, with_crs : bool = True):
     ds = xr_data[var]
 
     print(f"{var} dimensions: ", ds.dims)
@@ -58,7 +56,6 @@ def plot_xr(xr_data : xr.Dataset, var : str, level : int = None):
         ds = ds.isel(history=0)
 
     fig = plt.figure(figsize=(12, 6))
-    ax = fig.add_subplot(1, 1, 1, projection=crs)
 
     if level is not None:
         fig.suptitle(f"{var} at {level} hPa", fontsize=16)
@@ -69,24 +66,34 @@ def plot_xr(xr_data : xr.Dataset, var : str, level : int = None):
 
     min, max = ds.min().values, ds.max().values
 
-    im = ds.plot.imshow(vmin=min, vmax=max, cmap='turbo', ax=ax, transform=crs)
+    if with_crs:
+        central_lon = 0.0
+        crs = ccrs.PlateCarree(central_longitude=central_lon)
+        ax = fig.add_subplot(1, 1, 1, projection=crs)
+        im = ds.plot.imshow(vmin=min, vmax=max, cmap='turbo', ax=ax, transform=crs)
 
-    ax.coastlines(linewidth=0.7)
+        ax.coastlines(linewidth=0.7)
 
-    # Extra gridlines around CONUS
-    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                      xlocs=[-180, -165, -150, -140, -130, -120,
-                              -110, -100, -90, -80, -70, -60, -45, 0, 60, 120, 180],
-                      ylocs=[-90, -60, -30, 0, 20, 30, 40, 50, 60, 70, 80, 90],
-                    linewidth=2, color='gray', alpha=0.5, linestyle='--')
-    gl.top_labels = False
-    gl.right_labels = False
+        # Extra gridlines around CONUS
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                        xlocs=[-180, -165, -150, -140, -130, -120,
+                                -110, -100, -90, -80, -70, -60, -45, 0, 60, 120, 180],
+                        ylocs=[-90, -60, -30, 0, 20, 30, 40, 50, 60, 70, 80, 90],
+                        linewidth=2, color='gray', alpha=0.5, linestyle='--')
+        gl.top_labels = False
+        gl.right_labels = False
 
-    ax.add_feature(cfeature.LAKES, alpha=0.9)  
-    ax.add_feature(cfeature.COASTLINE, zorder=10)
+        ax.add_feature(cfeature.LAKES, alpha=0.9)  
+        ax.add_feature(cfeature.COASTLINE, zorder=10)
+
+        name = f"{var}_{level}_crs.png"
+    else:
+        ax = fig.add_subplot(1, 1, 1)
+        im = ds.plot.imshow(vmin=min, vmax=max, cmap='turbo', ax=ax)
+        name = f"{var}_{level}.png"
 
     fig.tight_layout()
 
-    fig.savefig(f"tiles/{var}_{level}.png")
+    fig.savefig(f"tiles/{name}")
 
     plt.close('all')
