@@ -157,7 +157,10 @@ if __name__ == '__main__':
     serve_dir = "serve"
     noun = "test"
     timestamp = '20240101T0000Z'
+
     ds = xr.open_dataset('tiles/test_preds.h5')
+    ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
+
 
     # Print ranges for lat, lon, time, and level
     print("Lat Range: ", type(ds['latitude'].min().values), ds['latitude'].min().values, " - to - ", ds['latitude'].max().values)
@@ -181,8 +184,8 @@ if __name__ == '__main__':
     # Extract only CONUS data from the xarray dataset
     minLat = 55.0
     maxLat = 20.0
-    minLon = 180.0
-    maxLon = 360.0
+    minLon = -130.0
+    maxLon = -60.0
 
     ds = ds.sel(latitude=slice(minLat, maxLat), longitude=slice(minLon, maxLon))
 
