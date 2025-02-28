@@ -7,6 +7,10 @@
 # You should not manually edit this file.
 # Instead edit the corresponding pyproject.toml file.
 #
+
+# NOTE: this environment may need to be used for the tile_server
+# xESMF cannot be installed through pip
+
 name: aurora_env
 channels:
   - conda-forge
@@ -36,9 +40,10 @@ dependencies:
   - ruff==0.4.1
   - scipy
   - timm==0.6.13
-  - pytorch
+  - pytorch==2.6.0
   - wheel
   - xarray
+  - xesmf
   - pip
   - pip:
     - huggingface-hub
