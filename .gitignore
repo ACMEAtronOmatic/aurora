@@ -41,3 +41,5 @@ testing_viz
 rgb_images
 *.h5
 *.png
+*.nc
+*.ESMF_LogFile
