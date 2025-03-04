@@ -11,10 +11,34 @@ import matplotlib.pyplot as plt
 from cartopy import crs as ccrs, feature as cfeature
 from visualize import plot_xr, rain_palette
 import yaml
+from datetime import datetime
+from io import BytesIO
+import boto3
+from botocore.exceptions import ClientError
+import ast
+
 
 
 # NOTE: must be installed through conda
 import xesmf as xe
+
+
+wasabi_endpoint = os.environ['WASABI_ENDPOINT']
+wasabi_bucket   = os.environ['WASABI_BUCKET']
+idrive_endpoint = os.environ['IDRIVE_ENDPOINT']
+idrive_bucket   = os.environ['IDRIVE_BUCKET']
+wasabi_secret   = os.environ['WASABI_SECRET_KEY']
+wasabi_key      = os.environ['WASABI_ACCESS_KEY']
+idrive_secret   = os.environ['IDRIVE_ACCESS_SECRET']
+idrive_key      = os.environ['IDRIVE_ACCESS_KEY']
+
+print("Wasabi: ")
+print("\tEndpoint: ", wasabi_endpoint)
+print("\tBucket: ", wasabi_bucket)
+
+print("IDrive: ")
+print("\tEndpoint: ", idrive_endpoint)
+print("\tBucket: ", idrive_bucket)
 
 
 NUM_CORES = multiprocessing.cpu_count()
@@ -63,8 +87,8 @@ def regrid(data : xr.Dataset, regrid_file : str, conus : bool = False) -> xr.Dat
         lon_min, lon_max = -180.0, 180.0  # degrees West
 
     # Create coordinates at MRMS resolution (0.01°)
-    lat = np.arange(lat_min, lat_max + 0.01, 0.01)
-    lon = np.arange(lon_min, lon_max + 0.01, 0.01)
+    lat = np.arange(lat_min, lat_max, 0.01)
+    lon = np.arange(lon_min, lon_max, 0.01)
 
     # Create the xarray Dataset with proper attributes
     ds_dummy = xr.Dataset(
@@ -90,7 +114,11 @@ def regrid(data : xr.Dataset, regrid_file : str, conus : bool = False) -> xr.Dat
     weights_ds = xr.open_dataset(regrid_file)
 
     print("Weights File: ")
-    print(weights_ds)
+    for var in weights_ds.variables:
+        print("\t", var, weights_ds[var].shape)
+
+    print("Weight rows range: ", type(weights_ds['row'].min().values),weights_ds['row'].min().values, " - to - ", weights_ds['row'].max().values)
+    print("Weight cols range: ", type(weights_ds['col'].min().values), weights_ds['col'].min().values, " - to - ", weights_ds['col'].max().values)
 
 
     regridder = xe.Regridder(data, ds_dummy, method = 'bilinear', weights = regrid_file, reuse_weights=True)
@@ -206,7 +234,7 @@ def tile_into_folders(serve_dir, noun, timestamp, image):
                 
 
 def process_aurora_preds(filename : str):
-    ds = xr.open_dataset(filename)
+    ds = xr.open_dataset(filename, engine='netcdf4')
 
     ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
     ds = ds.assign_attrs({'latitude': {'units': 'degrees_north'},
@@ -227,10 +255,10 @@ def process_aurora_preds(filename : str):
 
 def select_conus(ds):
     # Extract only CONUS data from the xarray dataset
-    minLat = 55.0
+    minLat = 55.0 - 0.25
     maxLat = 20.0
     minLon = -130.0
-    maxLon = -60.0
+    maxLon = -60.0 - 0.25
 
     ds = ds.sel(latitude=slice(minLat, maxLat), longitude=slice(minLon, maxLon))
 
@@ -238,6 +266,95 @@ def select_conus(ds):
     print("New Lon Range: ", type(ds['longitude'].min().values), ds['longitude'].min().values, " - to - ", ds['longitude'].max().values)
 
     return ds
+
+
+def myradar_dataset(dtg : datetime, output_path : str, wasabi : bool = False): 
+
+    # Check if the mosaic dataset already exists
+    name = dtg.strftime('mosaic_CONUS_%Y_%m_%d_%H_%M.png')
+
+    full_path = os.path.join(output_path, name)
+
+    if os.path.exists(full_path):
+        print("Mosaic already exists: ", full_path)
+        
+        # Read in the dataset
+        im = Image.open(full_path)
+        out = np.asarray(im, np.uint8) # Single channel
+    else:
+        print("Loading AWS S3 client...")
+
+        if wasabi:
+            my_bucket = wasabi_bucket
+            s3 = boto3.client('s3',
+                endpoint_url          = wasabi_endpoint,
+                aws_access_key_id     = wasabi_key,
+                aws_secret_access_key = wasabi_secret)
+            
+        else:
+            my_bucket = idrive_bucket
+            s3 = boto3.client('s3',
+                endpoint_url          = idrive_endpoint,
+                aws_access_key_id     = idrive_key,
+                aws_secret_access_key = idrive_secret)
+        
+        print("S3 Client Loaded: ", s3)
+
+        response = s3.list_buckets()
+        print("Buckets: ")
+        for bucket in response['Buckets']:
+            print("\t", bucket['Name'])
+
+        # response = s3.list_objects_v2(
+        #     Bucket=my_bucket,
+        #     Delimiter='/'
+        # )
+        # print(response)
+
+        yy, mon, dd, hh, mm, _ = dtg.strftime('%Y %m %d %H %M %s').split()
+        with BytesIO() as f:
+            aa_path = dtg.strftime('mosaic/CONUS/%Y/%m/%d/%H/%M.png')
+            print("AA File Path: ", aa_path)
+
+            _ = s3.download_fileobj(my_bucket, aa_path, f)
+            im = Image.open(f)
+
+            out = np.asarray(im, np.uint8) # Single channel
+
+    # Get some grid information from the metadata from the PNG file.
+    im.getdata()
+    tileb = im.info['tile_bounds']
+    tileinfo = ast.literal_eval(tileb)
+    lb = tileinfo['TileMinX'] ; rb = tileinfo['TileMaxX']
+    bb = tileinfo['TileMinY'] ; tb = tileinfo['TileMaxY']
+    zoom = tileinfo['Zoom']
+
+    px = im.width // (rb - lb + 1) ; py = im.height // (tb - bb + 1)
+
+    scale = np.power(2,zoom)
+
+    xgrid = (np.float64(lb)*px + np.arange(0.,np.float64(im.width),1.0))/px
+    ygrid = (np.float64(bb)*py + np.arange(0.,np.float64(im.height),1.0))/py
+
+    xx,yy = np.meshgrid(xgrid,ygrid)
+
+    longitude = ( xx / scale  * 360.0) - 180.0
+    latitude = np.degrees(np.arctan( np.sinh( np.pi * (1.0  -  2.0 * yy / scale ) ) ) )
+
+    data_vars = { 'refl':(['y', 'x'], out,
+                            {'units': 'dBZ*3',
+                            'long_name':'compressed radar mosaic'})}
+    coords = {'longitude': (['y', 'x'], longitude),
+                'latitude': (['y', 'x'], latitude)}
+
+    attrs = { 'description' : 'MyRadar mosaic' }
+
+    ds = xr.Dataset(data_vars = data_vars, coords = coords, attrs = attrs)
+
+    im.close()
+
+    return ds
+
 
 if __name__ == '__main__':
     serve_dir = "serve"
@@ -250,7 +367,14 @@ if __name__ == '__main__':
 
     ds = process_aurora_preds('tiles/test_preds.h5')
 
-    ds = select_conus(ds)
+    myradar_mosaic = myradar_dataset(dtg=datetime(2023, 1, 1, 0, 0), output_path='tiles')
+
+    # Print the latitude/longitude ranges and shapes of the myradar mosaic
+    print("Mosaic Lat Range: ", type(myradar_mosaic['latitude'].min().values), myradar_mosaic['latitude'].min().values, " - to - ", myradar_mosaic['latitude'].max().values)
+    print("Mosaic Lon Range: ", type(myradar_mosaic['longitude'].min().values), myradar_mosaic['longitude'].min().values, " - to - ", myradar_mosaic['longitude'].max().values)
+    print("Mosaic Dims: ", myradar_mosaic.dims)
+
+    # ds = select_conus(ds)
 
     if visualize:
         # Plot plot some variables as a sanity check
@@ -268,7 +392,7 @@ if __name__ == '__main__':
                 plot_xr(ds, var=v)
                 plot_xr(ds, var=v, with_crs=False)
 
-    ds_regridded = regrid(data=ds, regrid_file=config['inference']['interpolation_file'], conus=True)
+    ds_regridded = regrid(data=ds, regrid_file=config['inference']['interpolation_file'], conus=False)
 
     # tile_into_folders(serve_dir, noun, timestamp, image)
 

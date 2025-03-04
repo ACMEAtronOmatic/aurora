@@ -19,6 +19,7 @@ channels:
   - defaults
 dependencies:
   - python=3.11.9
+  - boto3
   - build
   - cartopy
   - cdsapi
