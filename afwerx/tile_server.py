@@ -61,7 +61,7 @@ maxY = maxTileY * TILE_SIZE
 SKIP_PLOT = ["latitude", "longitude", "time", "batch", "history", "rollout_step", "level"]
 
 
-def regrid(data : xr.Dataset, regrid_file : str, conus : bool = False) -> xr.Dataset:
+def regrid(data : xr.Dataset, mosaic_data : xr.Dataset, regrid_file : str) -> xr.Dataset:
     '''
     Interpolate 0.25 degree GFS/Aurora/Mercator data to GOES CONUS grid
 
@@ -72,43 +72,17 @@ def regrid(data : xr.Dataset, regrid_file : str, conus : bool = False) -> xr.Dat
     regrid_file : str
         Full path to the xESMF regridding file. 
         Likely GFS/Aurora/Mercator 0.25 degree to GOES CONUS Zoom 7
-    conus : bool = False
-        Whether to regrid to the CONUS extent
     '''
-
-    # Create a dummy target dataset of the CONUS extent
-    # MRMS CONUS domain boundaries
-    if conus:
-        lat_min, lat_max = 20.0, 55.0  # degrees North
-        lon_min, lon_max = -130.0, -60.0  # degrees West (converted to negative values)
-    else:
-        # global extent
-        lat_min, lat_max = -90.0, 90.0  # degrees North
-        lon_min, lon_max = -180.0, 180.0  # degrees West
-
-    # Create coordinates at MRMS resolution (0.01°)
-    lat = np.arange(lat_min, lat_max, 0.01)
-    lon = np.arange(lon_min, lon_max, 0.01)
-
-    # Create the xarray Dataset with proper attributes
-    ds_dummy = xr.Dataset(
-        coords={
-            "lat": (["lat"], lat, {"units": "degrees_north"}),
-            "lon": (["lon"], lon, {"units": "degrees_east"}),
-        }
-    )
 
     # Print the shapes of the data and the dummy dataset
     print("Data Lat Range: ", type(data['latitude'].min().values), data['latitude'].min().values, " - to - ", data['latitude'].max().values)
     print("Data Lon Range: ", type(data['longitude'].min().values), data['longitude'].min().values, " - to - ", data['longitude'].max().values)
+    print("Data Dims: ", data.dims)
 
-    # Get shape of latitude and longitude
-    print("Data Shape: ", len(data['latitude']), len(data['longitude']))
-
-    print("Dummy Lat Range: ", type(ds_dummy['lat'].min().values), ds_dummy['lat'].min().values, " - to - ", ds_dummy['lat'].max().values)
-    print("Dummy Lon Range: ", type(ds_dummy['lon'].min().values), ds_dummy['lon'].min().values, " - to - ", ds_dummy['lon'].max().values)
-    print("Dummy Shape: ", len(ds_dummy['lat']), len(ds_dummy['lon']))
-
+    # Print the latitude/longitude ranges and shapes of the myradar mosaic
+    print("Mosaic Lat Range: ", type(mosaic_data['latitude'].min().values), mosaic_data['latitude'].min().values, " - to - ", mosaic_data['latitude'].max().values)
+    print("Mosaic Lon Range: ", type(mosaic_data['longitude'].min().values), mosaic_data['longitude'].min().values, " - to - ", mosaic_data['longitude'].max().values)
+    print("Mosaic Dims: ", mosaic_data.dims)
 
     # Open and inspect the weights file
     weights_ds = xr.open_dataset(regrid_file)
@@ -121,7 +95,7 @@ def regrid(data : xr.Dataset, regrid_file : str, conus : bool = False) -> xr.Dat
     print("Weight cols range: ", type(weights_ds['col'].min().values), weights_ds['col'].min().values, " - to - ", weights_ds['col'].max().values)
 
 
-    regridder = xe.Regridder(data, ds_dummy, method = 'bilinear', weights = regrid_file, reuse_weights=True)
+    regridder = xe.Regridder(data, mosaic_data, method = 'bilinear', weights = regrid_file, reuse_weights=True)
 
     # Regrid
     ds_regridded = regridder(data)
@@ -132,7 +106,7 @@ def regrid(data : xr.Dataset, regrid_file : str, conus : bool = False) -> xr.Dat
     # Print new shape, latitude, and longitude range
     print("New Lat Range: ", type(ds_regridded['latitude'].min().values), ds_regridded['latitude'].min().values, " - to - ", ds_regridded['latitude'].max().values)
     print("New Lon Range: ", type(ds_regridded['longitude'].min().values), ds_regridded['longitude'].min().values, " - to - ", ds_regridded['longitude'].max().values)
-    print("Shape: ", ds_regridded.shape)
+    print("Shape: ", ds_regridded.dims)
 
     return ds_regridded
 
@@ -369,11 +343,6 @@ if __name__ == '__main__':
 
     myradar_mosaic = myradar_dataset(dtg=datetime(2023, 1, 1, 0, 0), output_path='tiles')
 
-    # Print the latitude/longitude ranges and shapes of the myradar mosaic
-    print("Mosaic Lat Range: ", type(myradar_mosaic['latitude'].min().values), myradar_mosaic['latitude'].min().values, " - to - ", myradar_mosaic['latitude'].max().values)
-    print("Mosaic Lon Range: ", type(myradar_mosaic['longitude'].min().values), myradar_mosaic['longitude'].min().values, " - to - ", myradar_mosaic['longitude'].max().values)
-    print("Mosaic Dims: ", myradar_mosaic.dims)
-
     # ds = select_conus(ds)
 
     if visualize:
@@ -392,7 +361,10 @@ if __name__ == '__main__':
                 plot_xr(ds, var=v)
                 plot_xr(ds, var=v, with_crs=False)
 
-    ds_regridded = regrid(data=ds, regrid_file=config['inference']['interpolation_file'], conus=False)
+    ds_regridded = regrid(data=ds, mosaic_data=myradar_mosaic, regrid_file=config['inference']['interpolation_file'])
+
+    # Save the regridded dataset to a netCDF file
+    ds_regridded.to_netcdf(f"tiles/aurora_regridded.nc")
 
     # tile_into_folders(serve_dir, noun, timestamp, image)
 
