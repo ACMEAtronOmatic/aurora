@@ -191,6 +191,9 @@ def make_batch(static_path, surface_path, atmos_path, step):
 
     print("Batch with presure levels: ", tuple(int(level) for level in atmos_ds.level.values))
     print("Batch at time: ", (surface_ds.time.values.astype("datetime64[s]").tolist()[step],))
+    print("Batch latitudes: ", atmos_ds['latitude'].values[:5], atmos_ds['latitude'].values[-5:])
+    print("Batch longitudes: ", atmos_ds['longitude'].values[:5], atmos_ds['longitude'].values[-5:])
+    print("Batch atmos shape: ", atmos_ds["t"].shape)
 
     batch = Batch(
         surf_vars={

@@ -61,7 +61,7 @@ maxY = maxTileY * TILE_SIZE
 SKIP_PLOT = ["latitude", "longitude", "time", "batch", "history", "rollout_step", "level"]
 
 
-def regrid(data : xr.Dataset, mosaic_data : xr.Dataset, regrid_file : str) -> xr.Dataset:
+def regrid(data : xr.Dataset, mosaic_data : xr.Dataset, regrid_file : str, output_path : str) -> xr.Dataset:
     '''
     Interpolate 0.25 degree GFS/Aurora/Mercator data to GOES CONUS grid
 
@@ -74,39 +74,113 @@ def regrid(data : xr.Dataset, mosaic_data : xr.Dataset, regrid_file : str) -> xr
         Likely GFS/Aurora/Mercator 0.25 degree to GOES CONUS Zoom 7
     '''
 
+    # Check if a regridded file already exists
+    full_path = os.path.join(output_path, "aurora_regridded.nc")
+    if os.path.exists(full_path):
+        print("Regridded file already exists: ", full_path)
+        ds_regridded = xr.open_dataset(full_path)
+
+        print("Regridded Data Dims: ", ds_regridded.dims)
+
+        # If coordinates are x, y -> reassign to lon/lat
+        if "x" in ds_regridded.dims and "y" in ds_regridded.dims:
+            # Print the ranges of these coordinates
+            print("X Range: ", ds_regridded['x'].dtype, ds_regridded['x'].values[:5], ds_regridded['x'].values[-5:])
+            print("Y Range: ", ds_regridded['y'].dtype, ds_regridded['y'].values[:5], ds_regridded['y'].values[-5:])
+
+            # ds_regridded = ds_regridded.rename({"x": "longitude", "y": "latitude"})
+
+        ds_regridded.assign_coords(longitude = ds_regridded['longitude'],
+                                     latitude = ds_regridded['latitude'])
+        
+        ds_regridded = ds_regridded.assign_attrs({'latitude': {'units': 'degrees_north'},
+                            'longitude': {'units': 'degrees_east'}})
+        
+        # Print the shapes of the data and the dummy dataset
+        print("Data Lat Range: ", ds_regridded['latitude'].dtype, ds_regridded['latitude'].values[:10], ds_regridded['latitude'].values[-10:])
+        print("Data Lon Range: ", ds_regridded['longitude'].dtype, ds_regridded['longitude'].values[:10], ds_regridded['longitude'].values[-10:])
+        print("Data Dims: ", ds_regridded.dims)
+
+        return ds_regridded
+
     # Print the shapes of the data and the dummy dataset
-    print("Data Lat Range: ", type(data['latitude'].min().values), data['latitude'].min().values, " - to - ", data['latitude'].max().values)
-    print("Data Lon Range: ", type(data['longitude'].min().values), data['longitude'].min().values, " - to - ", data['longitude'].max().values)
+    print("Data Lat Range: ", data['latitude'].dtype, data['latitude'].values[:10], data['latitude'].values[-10:])
+    print("Data Lon Range: ", data['longitude'].dtype, data['longitude'].values[:10], data['longitude'].values[-10:])
     print("Data Dims: ", data.dims)
 
     # Print the latitude/longitude ranges and shapes of the myradar mosaic
-    print("Mosaic Lat Range: ", type(mosaic_data['latitude'].min().values), mosaic_data['latitude'].min().values, " - to - ", mosaic_data['latitude'].max().values)
-    print("Mosaic Lon Range: ", type(mosaic_data['longitude'].min().values), mosaic_data['longitude'].min().values, " - to - ", mosaic_data['longitude'].max().values)
+    print("Mosaic Lat Range: ", mosaic_data['latitude'].dtype, mosaic_data['latitude'].values[:1], mosaic_data['latitude'].values[-1:])
+    print("Mosaic Lon Range: ", mosaic_data['longitude'].dtype, mosaic_data['longitude'].values[:1], mosaic_data['longitude'].values[-1:])
     print("Mosaic Dims: ", mosaic_data.dims)
 
     # Open and inspect the weights file
-    weights_ds = xr.open_dataset(regrid_file)
+    # weights_ds = xr.open_dataset(regrid_file)
 
-    print("Weights File: ")
-    for var in weights_ds.variables:
-        print("\t", var, weights_ds[var].shape)
+    # print("Weights File: ")
+    # for var in weights_ds.variables:
+    #     print("\t", var, weights_ds[var].shape)
 
-    print("Weight rows range: ", type(weights_ds['row'].min().values),weights_ds['row'].min().values, " - to - ", weights_ds['row'].max().values)
-    print("Weight cols range: ", type(weights_ds['col'].min().values), weights_ds['col'].min().values, " - to - ", weights_ds['col'].max().values)
+    # print("Weight rows range: ", type(weights_ds['row'].min().values),weights_ds['row'].min().values, " - to - ", weights_ds['row'].max().values)
+    # print("Weight cols range: ", type(weights_ds['col'].min().values), weights_ds['col'].min().values, " - to - ", weights_ds['col'].max().values)
+
+    # regridder = xe.Regridder(data, mosaic_data, method = 'bilinear', weights = regrid_file, reuse_weights=True)
+
+    # # Regrid
+    # ds_regridded = regridder(data)
+
+    # edict = {'dtype' : 'f4', 'compression' : 'gzip', 'compression_opts' : 4, 'shuffle' : True}
+    # encoding = {var : edict for var in config['variables']}
+
+    # ds_regridded.to_netcdf(os.path.join(output_path, "raw_regridder_output.nc"), mode = 'w',
+    #                         format = 'NETCDF4', engine = 'h5netcdf', encoding=encoding)
 
 
-    regridder = xe.Regridder(data, mosaic_data, method = 'bilinear', weights = regrid_file, reuse_weights=True)
+    # regridder.grid_in.destroy()
+    # regridder.grid_out.destroy()
 
-    # Regrid
-    ds_regridded = regridder(data)
+    '''
+    NOTES
+    - unprocessed regridded data does not have lat/lon set as coordinates
+    - unprocessed regridded data lat/lons BOTH have shape (y, x)
+    - regridded data uses a meshgrid representation
 
-    regridder.grid_in.destroy()
-    regridder.grid_out.destroy()
 
-    # Print new shape, latitude, and longitude range
-    print("New Lat Range: ", type(ds_regridded['latitude'].min().values), ds_regridded['latitude'].min().values, " - to - ", ds_regridded['latitude'].max().values)
-    print("New Lon Range: ", type(ds_regridded['longitude'].min().values), ds_regridded['longitude'].min().values, " - to - ", ds_regridded['longitude'].max().values)
-    print("Shape: ", ds_regridded.dims)
+    '''
+
+    # TODO: remove this once tested
+    ds_regridded = xr.open_dataset(os.path.join(output_path, "raw_regridder_output.nc"))
+
+    print("Unprocessed Regridded Data Dims: ")
+    for dim in ds_regridded.dims:
+        print("\t", dim, ds_regridded[dim].shape)
+
+    print("Unprocessed Regridded Data Variables: ")
+    for var in ds_regridded.variables:
+        print("\t", var, ds_regridded[var].shape)
+
+    print("Unprocessed Regridded Coordinates: ")
+    print(ds_regridded.coords)
+
+    # If coordinates are x, y -> reassign to lon/lat
+    print("X Range: ", ds_regridded['x'].dtype, ds_regridded['x'].shape, ds_regridded['x'].values[:1], ds_regridded['x'].values[-1:])
+    print("Y Range: ", ds_regridded['y'].dtype, ds_regridded['y'].shape, ds_regridded['y'].values[:1], ds_regridded['y'].values[-1:])
+    # ds_regridded = ds_regridded.rename({"x": "longitude", "y": "latitude"})
+
+    # ds_regridded.assign_coords(longitude = ds_regridded['longitude'],
+    #                                 latitude = ds_regridded['latitude'])
+        
+    # ds_regridded['latitude'] = ds_regridded['latitude'].values[:, 0]
+    # ds_regridded['longitude'] = ds_regridded['longitude'].values[0]
+
+    # ds_regridded = ds_regridded.assign_attrs({'latitude': {'units': 'degrees_north'},
+    #                     'longitude': {'units': 'degrees_east'}})
+
+    # # Print new shape, latitude, and longitude range
+    # print("New Lat Range: ", ds_regridded['latitude'].dtype, ds_regridded['latitude'].shape, ds_regridded['latitude'].values[:1], ds_regridded['latitude'].values[-1:])
+    # print("New Lon Range: ", ds_regridded['longitude'].dtype, ds_regridded['longitude'].shape, ds_regridded['longitude'].values[:1], ds_regridded['longitude'].values[-1:])
+
+    # # Drop X and Y
+    # ds_regridded = ds_regridded.drop_dims(['x', 'y'])
 
     return ds_regridded
 
@@ -210,14 +284,21 @@ def tile_into_folders(serve_dir, noun, timestamp, image):
 def process_aurora_preds(filename : str):
     ds = xr.open_dataset(filename, engine='netcdf4')
 
-    ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180))
+    # Print coordinates and lat/lon before processing
+    # Lats: 90 to -90
+    # Lons: 
+    print("Coordinates before processing: ", ds.coords)
+    print("Lats before processing: ", ds['latitude'].values[:10], ds['latitude'].values[-10:])
+    print("Lons before processing: ", ds['longitude'].values[:10], ds['longitude'].values[-10:])
+
+    ds = ds.assign_coords(latitude=ds.latitude, longitude=ds.longitude - 180.0)
     ds = ds.assign_attrs({'latitude': {'units': 'degrees_north'},
                         'longitude': {'units': 'degrees_east'}})
     
     # Print ranges for lat, lon, time, and level
-    print("Lat Range: ", type(ds['latitude'].min().values), ds['latitude'].min().values, " - to - ", ds['latitude'].max().values)
-    print("Lon Range: ", type(ds['longitude'].min().values), ds['longitude'].min().values, " - to - ", ds['longitude'].max().values)
-    print("Time Range: ", type(ds['time'].min().values), ds['time'].min().values, " - to - ", ds['time'].max().values)
+    print("Lats after processing: ", ds['latitude'].dtype, ds['latitude'].values[:10], ds['latitude'].values[-10:])
+    print("Lons after processing: ", ds['longitude'].dtype, ds['longitude'].values[:10], ds['longitude'].values[-10:])
+    print("Time Range: ", ds['time'].dtype, ds['time'].min().values, " - to - ", ds['time'].max().values)
     print("Levels: ", ds['level'].values)
 
     # Print name and shape of each variable
@@ -325,6 +406,15 @@ def myradar_dataset(dtg : datetime, output_path : str, wasabi : bool = False):
 
     ds = xr.Dataset(data_vars = data_vars, coords = coords, attrs = attrs)
 
+    # Print coordinates from myradar mosaic
+    # Note that lat/lon is a meshgrid, with shape (y, x) for both
+    print("Mosaic Dims: ", ds.dims)
+    print("Mosaic Variables: ", ds.variables)
+    print("Mosaic Coords: ")
+    print(ds.coords)
+    print("Mosaic Lats: ", ds['latitude'].dtype, ds['latitude'].shape, ds['latitude'].values[:1], ds['latitude'].values[-1:])
+    print("Mosaic Lons: ", ds['longitude'].dtype, ds['latitude'].shape, ds['longitude'].values[:1], ds['longitude'].values[-1:])
+
     im.close()
 
     return ds
@@ -334,17 +424,55 @@ if __name__ == '__main__':
     serve_dir = "serve"
     noun = "test"
     timestamp = '20240101T0000Z'
-    visualize = False
+    visualize = True
 
-    with open("configs/configs.yml", 'r') as file:
+    dir = ""
+
+    config_path = os.path.join(dir, "configs", "configs.yml")
+    with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
 
-    ds = process_aurora_preds('tiles/test_preds.h5')
+    preds_path = os.path.join(dir, "tiles", "test_preds.h5")
+    ds = process_aurora_preds(preds_path)
 
-    myradar_mosaic = myradar_dataset(dtg=datetime(2023, 1, 1, 0, 0), output_path='tiles')
+    mosaic_output_path = os.path.join(dir, "tiles")
+    myradar_mosaic = myradar_dataset(dtg=datetime(2023, 1, 1, 0, 0), output_path=mosaic_output_path)
 
-    # ds = select_conus(ds)
+    plot_path = os.path.join(dir, "tiles")
+    # if visualize:
+    #     # Plot plot some variables as a sanity check
+    #     for v in ['atmos_v', 'surf_2t', 'static_z']:
+    #         if v in SKIP_PLOT:
+    #             continue
 
+    #         print("Plotting variable: ", v)
+    #         # Check if the variable is atmospheric, has levels
+    #         if 'level' in ds[v].dims:
+    #             for l in [1000, 700, 300]:
+    #                 plot_xr(ds, var=v, level=l, output_path=plot_path)
+    #                 plot_xr(ds, var=v, level=l, with_crs=False, output_path=plot_path)
+    #         else:
+    #             plot_xr(ds, var=v, output_path=plot_path)
+    #             plot_xr(ds, var=v, with_crs=False, output_path=plot_path)
+
+    regrid_path = os.path.join(dir, "tiles")
+    ds_regridded = regrid(data=ds, mosaic_data=myradar_mosaic, regrid_file=config['inference']['interpolation_file'], output_path=regrid_path)
+
+    # print("New Lat Range: ", ds_regridded['latitude'].dtype, ds_regridded['latitude'].shape, ds_regridded['latitude'].values[0], " - to - ", ds_regridded['latitude'].values[-1])
+    # print("New Lon Range: ", ds_regridded['longitude'].dtype, ds_regridded['longitude'].shape, ds_regridded['longitude'].values[0], " - to - ", ds_regridded['longitude'].values[-1])
+
+    print("Regridded Variables: ")
+    for var in ds_regridded.variables:
+        print("\t", var, ds_regridded[var].shape)
+
+    print("Regridded Dims: ")
+    for dim in ds_regridded.dims:
+        print("\t", dim, ds_regridded[dim].shape)
+
+    print("Regridded Coordinates: ")
+    print(ds_regridded.coords)
+
+    # Visualize the regridded dataset
     if visualize:
         # Plot plot some variables as a sanity check
         for v in ['atmos_v', 'surf_2t', 'static_z']:
@@ -353,18 +481,13 @@ if __name__ == '__main__':
 
             print("Plotting variable: ", v)
             # Check if the variable is atmospheric, has levels
-            if 'level' in ds[v].dims:
+            if 'level' in ds_regridded[v].dims:
                 for l in [1000, 700, 300]:
-                    plot_xr(ds, var=v, level=l)
-                    plot_xr(ds, var=v, level=l, with_crs=False)
+                    plot_xr(ds_regridded, var=v, level=l, conus=True, output_path=plot_path)
+                    plot_xr(ds_regridded, var=v, level=l, with_crs=False, conus=True, output_path=plot_path)
             else:
-                plot_xr(ds, var=v)
-                plot_xr(ds, var=v, with_crs=False)
-
-    ds_regridded = regrid(data=ds, mosaic_data=myradar_mosaic, regrid_file=config['inference']['interpolation_file'])
-
-    # Save the regridded dataset to a netCDF file
-    ds_regridded.to_netcdf(f"tiles/aurora_regridded.nc")
+                plot_xr(ds_regridded, var=v, conus=True, output_path=plot_path)
+                plot_xr(ds_regridded, var=v, with_crs=False, conus=True, output_path=plot_path)
 
     # tile_into_folders(serve_dir, noun, timestamp, image)
 

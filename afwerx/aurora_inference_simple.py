@@ -5,6 +5,7 @@ from PIL import Image
 import numpy as np
 import torch
 import xarray as xr
+import matplotlib.pyplot as plt
 
 from inference.generate_outputs import generate_outputs
 from data.era5_download import download_era5, make_batch
@@ -52,7 +53,7 @@ def main():
     era_level = "surface" if level==1000 else level
     print("ERA5 Level: ", era_level)
 
-# Create batch, (step - 1) >= 0
+    # Create batch, (step - 1) >= 0
     print("Making batch...")
     batch = make_batch(static_path, surface_path, atmos_path, 1)
     print("Batch created!")
@@ -123,8 +124,9 @@ def main():
         },
     )
 
-    # Save to HDF5 file
-    ds.to_netcdf("tiles/test_preds.h5")
+
+    ds.to_netcdf(os.path.join("tiles", "aurora_predictions_raw.nc"), mode = 'w',
+                            format = 'NETCDF4')
 
 
     # TODO: change this to make it configurable
@@ -186,6 +188,14 @@ def main():
     # Save the image
     img.save("tiles/test_rgba.png")
 
+    # Plot the a variable without a CRS
+    fig = plt.figure(figsize=(12, 6))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.imshow(r, cmap='gist_ncar')
+    ax.set_xticks(np.arange(0, 1440, 120))
+    ax.set_yticks(np.arange(0, 720, 120))
+
+    plt.savefig("tiles/raw_aurora_image.png")
 
 
 if __name__ == "__main__":

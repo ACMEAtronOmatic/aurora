@@ -45,15 +45,35 @@ for i, color in enumerate(rain_colors):
     rain_palette[i] = RGBAfromColor(color)
 
 
-def plot_xr(xr_data : xr.Dataset, var : str, level : int = None, with_crs : bool = True):
+def plot_xr(xr_data : xr.Dataset, var : str, level : int = None,
+             with_crs : bool = True, conus : bool = False, output_path : str = ""):
+    
+    print(f"Plotting variable: {var} @ {level} hPa")
+
     ds = xr_data[var]
 
-    print(f"{var} dimensions: ", ds.dims)
+    # ds_pandas = ds.to_dataframe().reset_index()
+    # df_fig = plt.figure(figsize=(12, 6))
+    # ax = df_fig.add_subplot(111)
+    # ax.scatter(x=ds_pandas["longitude"], y=ds_pandas["latitude"], c=ds_pandas[var], cmap='rainbow')
+    # df_fig.savefig(os.path.join(output_path, f"df_test_{var}.png"))
+
+    # print(f"Plotting variable: {type(ds)} {var}")
+    # print(f"{var} dimensions: ", ds.dims)
+    for v in ds.dims:
+        print("\t", v, ds[v].shape)
+
+    if conus:
+        central_lon = -95.5
+    else:
+        central_lon = 0.0
 
     if "batch" in ds.dims:
         ds = ds.isel(batch=0)
     if "history" in ds.dims:
         ds = ds.isel(history=0)
+    if "time" in ds.dims:
+        ds = ds.isel(time=0)
 
     fig = plt.figure(figsize=(12, 6))
 
@@ -66,11 +86,19 @@ def plot_xr(xr_data : xr.Dataset, var : str, level : int = None, with_crs : bool
 
     min, max = ds.min().values, ds.max().values
 
+    # Print lon/lat range
+    # print("Plotting Lon Range: ", ds['latitude'].dtype, ds['longitude'].values[:1], " - to - ", ds['longitude'].values[-1:])
+    # print("Plotting Lat Range: ", ds['latitude'].dtype, ds['latitude'].values[:1], " - to - ", ds['latitude'].values[-1:])
+
     if with_crs:
-        central_lon = 0.0
         crs = ccrs.PlateCarree(central_longitude=central_lon)
         ax = fig.add_subplot(1, 1, 1, projection=crs)
-        im = ds.plot.imshow(vmin=min, vmax=max, cmap='turbo', ax=ax, transform=crs)
+
+        # Check if the coordinates are on a meshgrid
+        if 'x' in ds.dims and 'y' in ds.dims:
+            ds.plot.pcolormesh(x='x', y='y',vmin=min, vmax=max, cmap='turbo', ax=ax, transform=crs)
+        else:
+            im = ds.plot.imshow(vmin=min, vmax=max, x='longitude', y='latitude', cmap='turbo', ax=ax, transform=crs)
 
         ax.coastlines(linewidth=0.7)
 
@@ -86,14 +114,26 @@ def plot_xr(xr_data : xr.Dataset, var : str, level : int = None, with_crs : bool
         ax.add_feature(cfeature.LAKES, alpha=0.9)  
         ax.add_feature(cfeature.COASTLINE, zorder=10)
 
-        name = f"{var}_{level}_crs.png"
+        if conus:
+            name = f"{var}_{level}_crs_conus.png"
+        else:
+            name = f"{var}_{level}_crs.png"
     else:
         ax = fig.add_subplot(1, 1, 1)
-        im = ds.plot.imshow(vmin=min, vmax=max, cmap='turbo', ax=ax)
-        name = f"{var}_{level}.png"
+        # Check if the coordinates are on a meshgrid
+        if 'x' in ds.dims and 'y' in ds.dims:
+            ds.plot.pcolormesh(x='x', y='y', vmin=min, vmax=max, cmap='turbo', ax=ax)
+        else:
+            im = ds.plot.imshow(vmin=min, vmax=max, x='longitude', y='latitude', cmap='turbo', ax=ax, transform=crs)
+        if conus:
+            name = f"{var}_{level}_conus.png"
+        else:
+            name = f"{var}_{level}.png"
 
     fig.tight_layout()
 
-    fig.savefig(f"tiles/{name}")
+    full_path = os.path.join(output_path, name)
+
+    fig.savefig(full_path)
 
     plt.close('all')
