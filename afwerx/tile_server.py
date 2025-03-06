@@ -9,7 +9,7 @@ import xarray as xr
 import warnings
 import matplotlib.pyplot as plt
 from cartopy import crs as ccrs, feature as cfeature
-from visualize import plot_xr, rain_palette
+from visualize import plot_xr, rain_palette, apply_colormap
 import yaml
 from datetime import datetime
 from io import BytesIO
@@ -74,117 +74,23 @@ def regrid(data : xr.Dataset, mosaic_data : xr.Dataset, regrid_file : str, outpu
         Likely GFS/Aurora/Mercator 0.25 degree to GOES CONUS Zoom 7
     '''
 
-    # Check if a regridded file already exists
-    full_path = os.path.join(output_path, "aurora_regridded.nc")
-    if os.path.exists(full_path):
-        print("Regridded file already exists: ", full_path)
-        ds_regridded = xr.open_dataset(full_path)
+    regridder = xe.Regridder(ds_in=data, ds_out=mosaic_data, method='bilinear', filename=regrid_file, reuse_weights=True)
 
-        print("Regridded Data Dims: ", ds_regridded.dims)
+    data_regridded = regridder(data)
 
-        # If coordinates are x, y -> reassign to lon/lat
-        if "x" in ds_regridded.dims and "y" in ds_regridded.dims:
-            # Print the ranges of these coordinates
-            print("X Range: ", ds_regridded['x'].dtype, ds_regridded['x'].values[:5], ds_regridded['x'].values[-5:])
-            print("Y Range: ", ds_regridded['y'].dtype, ds_regridded['y'].values[:5], ds_regridded['y'].values[-5:])
+    # Print attributes of this dataset
+    print("\n")
+    print("Regridded Dataset: ", data_regridded.dims)
 
-            # ds_regridded = ds_regridded.rename({"x": "longitude", "y": "latitude"})
+    minlon = data_regridded['longitude'].min().values
+    maxlon = data_regridded['longitude'].max().values
+    minlat = data_regridded['latitude'].min().values
+    maxlat = data_regridded['latitude'].max().values
 
-        ds_regridded.assign_coords(longitude = ds_regridded['longitude'],
-                                     latitude = ds_regridded['latitude'])
-        
-        ds_regridded = ds_regridded.assign_attrs({'latitude': {'units': 'degrees_north'},
-                            'longitude': {'units': 'degrees_east'}})
-        
-        # Print the shapes of the data and the dummy dataset
-        print("Data Lat Range: ", ds_regridded['latitude'].dtype, ds_regridded['latitude'].values[:10], ds_regridded['latitude'].values[-10:])
-        print("Data Lon Range: ", ds_regridded['longitude'].dtype, ds_regridded['longitude'].values[:10], ds_regridded['longitude'].values[-10:])
-        print("Data Dims: ", ds_regridded.dims)
+    print("Lons: ", minlon, " - to - ", maxlon)
+    print("Lats: ", minlat, " - to - ", maxlat)
 
-        return ds_regridded
-
-    # Print the shapes of the data and the dummy dataset
-    print("Data Lat Range: ", data['latitude'].dtype, data['latitude'].values[:10], data['latitude'].values[-10:])
-    print("Data Lon Range: ", data['longitude'].dtype, data['longitude'].values[:10], data['longitude'].values[-10:])
-    print("Data Dims: ", data.dims)
-
-    # Print the latitude/longitude ranges and shapes of the myradar mosaic
-    print("Mosaic Lat Range: ", mosaic_data['latitude'].dtype, mosaic_data['latitude'].values[:1], mosaic_data['latitude'].values[-1:])
-    print("Mosaic Lon Range: ", mosaic_data['longitude'].dtype, mosaic_data['longitude'].values[:1], mosaic_data['longitude'].values[-1:])
-    print("Mosaic Dims: ", mosaic_data.dims)
-
-    # Open and inspect the weights file
-    # weights_ds = xr.open_dataset(regrid_file)
-
-    # print("Weights File: ")
-    # for var in weights_ds.variables:
-    #     print("\t", var, weights_ds[var].shape)
-
-    # print("Weight rows range: ", type(weights_ds['row'].min().values),weights_ds['row'].min().values, " - to - ", weights_ds['row'].max().values)
-    # print("Weight cols range: ", type(weights_ds['col'].min().values), weights_ds['col'].min().values, " - to - ", weights_ds['col'].max().values)
-
-    # regridder = xe.Regridder(data, mosaic_data, method = 'bilinear', weights = regrid_file, reuse_weights=True)
-
-    # # Regrid
-    # ds_regridded = regridder(data)
-
-    # edict = {'dtype' : 'f4', 'compression' : 'gzip', 'compression_opts' : 4, 'shuffle' : True}
-    # encoding = {var : edict for var in config['variables']}
-
-    # ds_regridded.to_netcdf(os.path.join(output_path, "raw_regridder_output.nc"), mode = 'w',
-    #                         format = 'NETCDF4', engine = 'h5netcdf', encoding=encoding)
-
-
-    # regridder.grid_in.destroy()
-    # regridder.grid_out.destroy()
-
-    '''
-    NOTES
-    - unprocessed regridded data does not have lat/lon set as coordinates
-    - unprocessed regridded data lat/lons BOTH have shape (y, x)
-    - regridded data uses a meshgrid representation
-
-
-    '''
-
-    # TODO: remove this once tested
-    ds_regridded = xr.open_dataset(os.path.join(output_path, "raw_regridder_output.nc"))
-
-    print("Unprocessed Regridded Data Dims: ")
-    for dim in ds_regridded.dims:
-        print("\t", dim, ds_regridded[dim].shape)
-
-    print("Unprocessed Regridded Data Variables: ")
-    for var in ds_regridded.variables:
-        print("\t", var, ds_regridded[var].shape)
-
-    print("Unprocessed Regridded Coordinates: ")
-    print(ds_regridded.coords)
-
-    # If coordinates are x, y -> reassign to lon/lat
-    print("X Range: ", ds_regridded['x'].dtype, ds_regridded['x'].shape, ds_regridded['x'].values[:1], ds_regridded['x'].values[-1:])
-    print("Y Range: ", ds_regridded['y'].dtype, ds_regridded['y'].shape, ds_regridded['y'].values[:1], ds_regridded['y'].values[-1:])
-    # ds_regridded = ds_regridded.rename({"x": "longitude", "y": "latitude"})
-
-    # ds_regridded.assign_coords(longitude = ds_regridded['longitude'],
-    #                                 latitude = ds_regridded['latitude'])
-        
-    # ds_regridded['latitude'] = ds_regridded['latitude'].values[:, 0]
-    # ds_regridded['longitude'] = ds_regridded['longitude'].values[0]
-
-    # ds_regridded = ds_regridded.assign_attrs({'latitude': {'units': 'degrees_north'},
-    #                     'longitude': {'units': 'degrees_east'}})
-
-    # # Print new shape, latitude, and longitude range
-    # print("New Lat Range: ", ds_regridded['latitude'].dtype, ds_regridded['latitude'].shape, ds_regridded['latitude'].values[:1], ds_regridded['latitude'].values[-1:])
-    # print("New Lon Range: ", ds_regridded['longitude'].dtype, ds_regridded['longitude'].shape, ds_regridded['longitude'].values[:1], ds_regridded['longitude'].values[-1:])
-
-    # # Drop X and Y
-    # ds_regridded = ds_regridded.drop_dims(['x', 'y'])
-
-    return ds_regridded
-
-
+    return data_regridded
 
 
 def save_tile(filename, data):
@@ -200,21 +106,26 @@ def save_tile(filename, data):
 
     '''
 
+    num_data_channels = len(data.shape)
+
     # rgba --> bgra, which is the order for the RGBA 32-bit representation 
     bgra = [2, 1, 0, 3]
 
-    tile = np.empty((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
+    # tile = np.empty((TILE_SIZE, TILE_SIZE, num_data_channels), dtype=np.uint8)
 
-    # Remap colors for each channel individually
-    for chan in range(tile.shape[2]):
-        print("Channel: ", chan)   
-        print("\tTile Channel Shape: ", type(tile), tile[:, :, chan].shape)
-        print("\tData Shape: ", type(data), data.shape)
-        print("\tData Channel Shape: ", type(data), data[:, :, chan].shape)
-        print("\tRain Pallete Output: ", type(rain_palette[data[:, :, chan], bgra[chan]]), rain_palette[data[:, :, chan], bgra[chan]].shape)
+    # # Remap colors for each channel individually
+    # for chan in range(num_data_channels):
+    #     print("Channel: ", chan)   
+    #     print("\tTile Channel Shape: ", type(tile), tile[:, :, chan].shape)
+    #     print("\tData Shape: ", type(data), data.shape)
+    #     print("\tData Channel Shape: ", type(data), data[:, :, chan].shape)
 
-        tile[:, :, chan] = rain_palette[data[:, :, chan], bgra[chan]]
+    #     # If appplying rain palette
+    #     tile[:, :, chan] = rain_palette[data[:, :, chan], bgra[chan]]
 
+    tile = apply_colormap(data[:, :, 0], cmap='turbo')
+
+    print("Tile Shape: ", tile.shape)   
     print("Saving image to: ", filename)
 
     file_dir = os.path.join(*filename.split('/')[:-1])
@@ -225,14 +136,14 @@ def save_tile(filename, data):
     # CV write
     sts = cv2.imwrite(filename, tile)
 
-    print("Status: ", sts)
+    print(f"{filename} Status: ", sts)
 
     # PIL Image write
     # img = Image.fromarray(tile)
     # img.save(filename)
 
 
-def tile_into_folders(serve_dir, noun, timestamp, image):
+def tile_into_folders(serve_dir : str, noun : str, timestamp : str, image : np.ndarray, remap : bool = True):
     '''
     Create folders and tiles from image for serving.
     
@@ -249,36 +160,51 @@ def tile_into_folders(serve_dir, noun, timestamp, image):
 
     '''
 
+    # Check the image shape
+    if len(image.shape) == 2:
+        # Repeat the image 3 times
+        image = np.repeat(image[:, :, np.newaxis], 3, axis=2)
+
+    # Check if 3 dimensions, but only one channel
+    elif len(image.shape) == 3 and image.shape[2] == 1:
+        # Repeat the image 3 times
+        image = np.repeat(image[:, :, np.newaxis], 3, axis=2)
+
+    if remap:
+        max = np.max(image)
+        min = np.min(image)
+
+        image = 255.0 * ((image - min) / (max - min))
+
+    image = image.astype(np.uint8)
+
+    # Save the image
+    cv2.imwrite("tiles/pre-tiled-image.png", image)
+
     # Iterate through minX to maxX tiles
     for x in np.arange(minTileX, maxTileX):
         # folder = serve_dir + noun + timestamp + '/'
         # sts = Popen('mkdir -p ' + folder + '{}/{}'.format(7, x), shell=True).wait()
-        folder = os.path.join(serve_dir, noun, timestamp, f"{7}/{x}")
+
+        folder = os.path.join(serve_dir, noun, timestamp, '{}/{}'.format(7, x))
         os.makedirs(folder, exist_ok=True)
 
         for y in np.arange(minTileY, maxTileY):
-            image = image.astype(np.uint8)
 
-            print("Image before regridding: ", image.shape)
+            y1 = y*TILE_SIZE-minY
+            y2 = y*TILE_SIZE-minY+TILE_SIZE
 
-            image = regrid(image)
+            x1 = x*TILE_SIZE-minX
+            x2 = x*TILE_SIZE-minX+TILE_SIZE
 
-            print("Image after regridding: ", image.shape)
+            print("Image Tile: ", image[y1 : y2, x1 : x2].shape)
 
-            # Save the regridded image
-            cv2.imwrite("tiles/regridded.png", image)
-
-            print("Image Tile: ", image[y*TILE_SIZE-minY : y*TILE_SIZE-minY+TILE_SIZE, \
-                                        x*TILE_SIZE-minX : x*TILE_SIZE-minX+TILE_SIZE].shape)
-
-            filename = f"{7}/{x}/{y}.png"
+            filename = f"{y}.png"
             file_path = os.path.join(folder, filename)
 
             print("File Path: ", file_path)
 
-            sts = save_tile(file_path, \
-                            image[y*TILE_SIZE-minY : y*TILE_SIZE-minY+TILE_SIZE, \
-                                    x*TILE_SIZE-minX : x*TILE_SIZE-minX+TILE_SIZE])
+            sts = save_tile(file_path, image[y1 : y2, x1 : x2])
                 
 
 def process_aurora_preds(filename : str):
@@ -291,11 +217,20 @@ def process_aurora_preds(filename : str):
     print("Lats before processing: ", ds['latitude'].values[:10], ds['latitude'].values[-10:])
     print("Lons before processing: ", ds['longitude'].values[:10], ds['longitude'].values[-10:])
 
-    ds = ds.assign_coords(latitude=ds.latitude, longitude=ds.longitude - 180.0)
+    # Attempt to pad Aurora
+    ds = ds.pad({"latitude": (0, 1)}, mode='wrap')
+
+    # Reassign latitude values from [90, -89.75] to [90.0, -90.0]
+    new_lats = np.linspace(90.0, -90.0, 721)
+
+    ds = ds.assign_coords(latitude=new_lats, longitude=ds.longitude)
+
+    # ds = ds.assign_coords(latitude=ds.latitude, longitude=ds.longitude - 180.0)
     ds = ds.assign_attrs({'latitude': {'units': 'degrees_north'},
                         'longitude': {'units': 'degrees_east'}})
     
     # Print ranges for lat, lon, time, and level
+    print("\n")
     print("Lats after processing: ", ds['latitude'].dtype, ds['latitude'].values[:10], ds['latitude'].values[-10:])
     print("Lons after processing: ", ds['longitude'].dtype, ds['longitude'].values[:10], ds['longitude'].values[-10:])
     print("Time Range: ", ds['time'].dtype, ds['time'].min().values, " - to - ", ds['time'].max().values)
@@ -307,6 +242,7 @@ def process_aurora_preds(filename : str):
         print("\t", var, ds[var].shape)
     
     return ds
+
 
 def select_conus(ds):
     # Extract only CONUS data from the xarray dataset
@@ -409,11 +345,8 @@ def myradar_dataset(dtg : datetime, output_path : str, wasabi : bool = False):
     # Print coordinates from myradar mosaic
     # Note that lat/lon is a meshgrid, with shape (y, x) for both
     print("Mosaic Dims: ", ds.dims)
-    print("Mosaic Variables: ", ds.variables)
     print("Mosaic Coords: ")
     print(ds.coords)
-    print("Mosaic Lats: ", ds['latitude'].dtype, ds['latitude'].shape, ds['latitude'].values[:1], ds['latitude'].values[-1:])
-    print("Mosaic Lons: ", ds['longitude'].dtype, ds['latitude'].shape, ds['longitude'].values[:1], ds['longitude'].values[-1:])
 
     im.close()
 
@@ -421,18 +354,23 @@ def myradar_dataset(dtg : datetime, output_path : str, wasabi : bool = False):
 
 
 if __name__ == '__main__':
+
+    # Set variables
     serve_dir = "serve"
     noun = "test"
     timestamp = '20240101T0000Z'
     visualize = True
 
-    dir = ""
+    # set to 'afwerx' if using vscode debugger
+    dir = "afwerx"
 
+    # Load configs
     config_path = os.path.join(dir, "configs", "configs.yml")
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
 
-    preds_path = os.path.join(dir, "tiles", "test_preds.h5")
+    # Read in downloaded aurora predictions
+    preds_path = os.path.join(dir, "tiles", "aurora_predictions_raw.nc")
     ds = process_aurora_preds(preds_path)
 
     mosaic_output_path = os.path.join(dir, "tiles")
@@ -457,20 +395,6 @@ if __name__ == '__main__':
 
     regrid_path = os.path.join(dir, "tiles")
     ds_regridded = regrid(data=ds, mosaic_data=myradar_mosaic, regrid_file=config['inference']['interpolation_file'], output_path=regrid_path)
-
-    # print("New Lat Range: ", ds_regridded['latitude'].dtype, ds_regridded['latitude'].shape, ds_regridded['latitude'].values[0], " - to - ", ds_regridded['latitude'].values[-1])
-    # print("New Lon Range: ", ds_regridded['longitude'].dtype, ds_regridded['longitude'].shape, ds_regridded['longitude'].values[0], " - to - ", ds_regridded['longitude'].values[-1])
-
-    print("Regridded Variables: ")
-    for var in ds_regridded.variables:
-        print("\t", var, ds_regridded[var].shape)
-
-    print("Regridded Dims: ")
-    for dim in ds_regridded.dims:
-        print("\t", dim, ds_regridded[dim].shape)
-
-    print("Regridded Coordinates: ")
-    print(ds_regridded.coords)
 
     # Visualize the regridded dataset
     if visualize:

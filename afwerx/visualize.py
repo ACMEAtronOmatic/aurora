@@ -3,6 +3,8 @@ import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 from cartopy import crs as ccrs, feature as cfeature
+import cv2
+from PIL import Image
 
 rain_colors = \
 [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
@@ -137,3 +139,16 @@ def plot_xr(xr_data : xr.Dataset, var : str, level : int = None,
     fig.savefig(full_path)
 
     plt.close('all')
+
+
+def apply_colormap(img, cmap='turbo'):
+    print("Input Dimensions: ", img.shape)
+    colormap = plt.get_cmap(cmap)
+
+    # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGBA)
+    # print("After cv2 Conversion: ", img.shape)
+
+    colorized = colormap(img) * 255.0
+    print("After Colorization: ", colorized.shape)
+
+    return colorized
