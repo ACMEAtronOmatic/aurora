@@ -46,12 +46,16 @@ N = 16384
 TILE_SIZE = 256
 ZOOM = 7
 
+CONUS_Y_SIZE = 4608
+CONUS_X_SIZE = 7168
+
 # Aurora size: 720, 1440
+# CONUS Size: 4608, 7168
 
 minTileX = 0
 minTileY = 0
-maxTileX = 6
-maxTileY = 3
+maxTileX = CONUS_X_SIZE // TILE_SIZE
+maxTileY = CONUS_Y_SIZE // TILE_SIZE
 
 minX = minTileX * TILE_SIZE
 minY = minTileY * TILE_SIZE
