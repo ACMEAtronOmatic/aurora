@@ -43,3 +43,4 @@ rgb_images
 *.png
 *.nc
 *.ESMF_LogFile
+*.pem

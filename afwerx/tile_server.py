@@ -52,15 +52,25 @@ CONUS_X_SIZE = 7168
 # Aurora size: 720, 1440
 # CONUS Size: 4608, 7168
 
-minTileX = 0
-minTileY = 0
-maxTileX = CONUS_X_SIZE // TILE_SIZE
-maxTileY = CONUS_Y_SIZE // TILE_SIZE
+# minTileX = 0
+# minTileY = 0
+# maxTileX = CONUS_X_SIZE // TILE_SIZE
+# maxTileY = CONUS_Y_SIZE // TILE_SIZE
 
-minX = minTileX * TILE_SIZE
-minY = minTileY * TILE_SIZE
-maxX = maxTileX * TILE_SIZE
-maxY = maxTileY * TILE_SIZE
+# minX = minTileX * TILE_SIZE
+# minY = minTileY * TILE_SIZE
+# maxX = maxTileX * TILE_SIZE
+# maxY = maxTileY * TILE_SIZE
+
+minTileX = 16
+minTileY = 40
+maxTileX = minTileX + CONUS_X_SIZE // TILE_SIZE
+maxTileY = minTileY + CONUS_Y_SIZE // TILE_SIZE
+
+minX = 0
+minY = 0
+maxX = CONUS_X_SIZE
+maxY = CONUS_Y_SIZE
 
 SKIP_PLOT = ["latitude", "longitude", "time", "batch", "history", "rollout_step", "level"]
 
@@ -195,11 +205,17 @@ def tile_into_folders(serve_dir : str, noun : str, timestamp : str, image : np.n
 
         for y in np.arange(minTileY, maxTileY):
 
-            y1 = y*TILE_SIZE-minY
-            y2 = y*TILE_SIZE-minY+TILE_SIZE
+            # tileX and tileY are indexed wrt MapTuple, not the image
+            # minX - maxY are indexed wrt the image
 
-            x1 = x*TILE_SIZE-minX
-            x2 = x*TILE_SIZE-minX+TILE_SIZE
+            image_x = x - minTileX
+            image_y = y - minTileY
+
+            y1 = image_y*TILE_SIZE-minY
+            y2 = image_y*TILE_SIZE-minY+TILE_SIZE
+
+            x1 = image_x*TILE_SIZE-minX
+            x2 = image_x*TILE_SIZE-minX+TILE_SIZE
 
             print("Image Tile: ", image[y1 : y2, x1 : x2].shape)
 
