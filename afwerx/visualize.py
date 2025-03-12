@@ -142,16 +142,16 @@ def plot_xr(xr_data : xr.Dataset, var : str, level : int = None,
 
 
 def apply_colormap(img, cmap='turbo'):
-    print("Input Dimensions: ", img.shape)
+    # print("Input Dimensions: ", img.shape)
     colormap = plt.get_cmap(cmap)
 
     # img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
-    print("After cv2 Conversion: ", img.shape)
+    # print("After cv2 Conversion: ", img.shape)
 
     # Put at half opacity
     colorized = colormap(img) * 255.0
     colorized[:, :, 3] = 128
 
-    print("After Colorization: ", colorized.shape)
+    # print("After Colorization: ", colorized.shape)
 
     return colorized

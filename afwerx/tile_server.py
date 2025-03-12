@@ -62,8 +62,8 @@ CONUS_X_SIZE = 7168
 # maxX = maxTileX * TILE_SIZE
 # maxY = maxTileY * TILE_SIZE
 
-minTileX = 16
-minTileY = 40
+minTileX = 16 # Taken from Vesh's PyTileServer
+minTileY = 40 # Taken from Vesh's PyTileServer
 maxTileX = minTileX + CONUS_X_SIZE // TILE_SIZE
 maxTileY = minTileY + CONUS_Y_SIZE // TILE_SIZE
 
@@ -139,25 +139,27 @@ def save_tile(filename, data):
 
     tile = apply_colormap(data[:, :, 0], cmap='turbo')
 
-    print("Tile Shape: ", tile.shape)   
-    print("Saving image to: ", filename)
+    # print("Tile Shape: ", tile.shape)   
+    # print("Saving image to: ", filename)
 
     file_dir = os.path.join(*filename.split('/')[:-1])
     if not os.path.exists(file_dir):
-        print("Creating directory: ", file_dir)
+        # print("Creating directory: ", file_dir)
         os.makedirs(file_dir)
 
     # CV write
     sts = cv2.imwrite(filename, tile)
 
-    print(f"{filename} Status: ", sts)
+    # print(f"{filename} Status: ", sts)
 
     # PIL Image write
     # img = Image.fromarray(tile)
     # img.save(filename)
 
 
-def tile_into_folders(serve_dir : str, noun : str, timestamp : str, image : np.ndarray, remap : bool = True):
+def tile_into_folders(serve_dir : str, noun : str,
+                       timestamp : str, image : np.ndarray,
+                         remap : bool = True, zoom : int | tuple[int, int] = 7):
     '''
     Create folders and tiles from image for serving.
     
@@ -171,8 +173,19 @@ def tile_into_folders(serve_dir : str, noun : str, timestamp : str, image : np.n
         Timestamp of the image.
     image : np.ndarray
         Image to be tiled.
+    zoom : int | tuple[int] = 7
+        Zoom level of the image. If a tuple is provided, images for each zoom [start, end) will be created.
 
-    '''
+
+    NOTES:
+    - x, y indices change with the zoom level
+        - 6 NW Corner: (8, 20)
+        - 7 NW Corner: (16, 40)
+        - 8 NW Corner: (32, 80)
+    - To get the original data (zoom 7 native) for a given zoom, the indices wrt to the image need to be:
+        - 
+
+    ''' 
 
     # Check the image shape
     if len(image.shape) == 2:
@@ -195,37 +208,96 @@ def tile_into_folders(serve_dir : str, noun : str, timestamp : str, image : np.n
     # Save the image
     cv2.imwrite("tiles/pre-tiled-image.png", image)
 
-    # Iterate through minX to maxX tiles
-    for x in np.arange(minTileX, maxTileX):
-        # folder = serve_dir + noun + timestamp + '/'
-        # sts = Popen('mkdir -p ' + folder + '{}/{}'.format(7, x), shell=True).wait()
+    zoom_range = np.arange(zoom[0], zoom[1]) if isinstance(zoom, tuple) else np.array([zoom])
 
-        folder = os.path.join(serve_dir, noun, timestamp, '{}/{}'.format(7, x))
+    dummy_tile = np.zeros((TILE_SIZE, TILE_SIZE, 3), dtype=np.uint8)
+
+    for z in zoom_range:
+
+        # Create a folder for each zoom level
+        folder = os.path.join(serve_dir, noun, timestamp, str(z))
         os.makedirs(folder, exist_ok=True)
 
-        for y in np.arange(minTileY, maxTileY):
+        # If not the native zoom of the image, resample
+        # NOTE: all tiles in MapTuple will be (TILE_SIZE, TILE_SIZE)
+        # The resampling either interpolates the data or reduces the resolution to match this sizing
 
-            # tileX and tileY are indexed wrt MapTuple, not the image
-            # minX - maxY are indexed wrt the image
+        scale_factor = 2.0 ** (7 - z) # Will be 1 if in zoom 7
+        zoom_tile_size = int(TILE_SIZE * scale_factor)
+        zoom_min_y = int(minTileY / scale_factor)
+        zoom_max_y = int(maxTileY / scale_factor)
+        zoom_min_x = int(minTileX / scale_factor)
+        zoom_max_x = int(maxTileX / scale_factor)
 
-            image_x = x - minTileX
-            image_y = y - minTileY
+        # Iterate through minX to maxX tiles
+        # NOTE: these tile indices are wrt to the zoom 7 tiles
+        # Each zoom level has 'scale_factor' more/less tiles accordingly
+        for x in np.arange(zoom_min_x, zoom_max_x):
+            # folder = serve_dir + noun + timestamp + '/'
+            # sts = Popen('mkdir -p ' + folder + '{}/{}'.format(7, x), shell=True).wait()
 
-            y1 = image_y*TILE_SIZE-minY
-            y2 = image_y*TILE_SIZE-minY+TILE_SIZE
+            x_folder = folder + '/{}'.format(x)
 
-            x1 = image_x*TILE_SIZE-minX
-            x2 = image_x*TILE_SIZE-minX+TILE_SIZE
+            os.makedirs(x_folder, exist_ok=True)
 
-            print("Image Tile: ", image[y1 : y2, x1 : x2].shape)
+            for y in np.arange(zoom_min_y, zoom_max_y):
+                # tileX and tileY are tile indices wrt MapTuple, not the image
+                # minX - maxY are pixel indices wrt the image/data pixels
+                # imageX - imageY are tile indices wrt to the image/data
 
-            filename = f"{y}.png"
-            file_path = os.path.join(folder, filename)
+                filename = f"{y}.png"
+                file_path = os.path.join(x_folder, filename)
 
-            print("File Path: ", file_path)
+                if z > 15:
+                    # Cannot serve finer than sub-pixel resolution
+                    # print("Zoom > 15, cannot serve finer than sub-pixel resolution")
+                    save_tile(file_path, dummy_tile)
+                    continue
 
-            sts = save_tile(file_path, image[y1 : y2, x1 : x2])
-                
+                image_x = x - zoom_min_x
+                image_y = y - zoom_min_y
+
+                y1 = image_y*zoom_tile_size-minY
+                y2 = image_y*zoom_tile_size-minY+zoom_tile_size
+
+                x1 = image_x*zoom_tile_size-minX
+                x2 = image_x*zoom_tile_size-minX+zoom_tile_size
+
+                this_tile = image[y1:y2, x1:x2]
+
+                # print("Selecting Image Coordinates: ", (y1, y2), (x1, x2))
+                # print(f"Image Tile {(x, y)} in Zoom {z}: ", this_tile.shape)
+
+                # Ensure that a valid tile is being returned
+                # These coordinates are wrt the original data/image
+                if y1 < 0 or y2 > CONUS_Y_SIZE or x1 < 0 or x1 > CONUS_X_SIZE:
+                    # print(f"Tile {(x, y)} out of bounds: ", ((y1, y2), (x1, x2)), this_tile.shape)
+                    # print("Saving dummy tile")
+                    
+                    save_tile(file_path, dummy_tile)
+                    continue
+
+                if this_tile.shape[0] == 0 or this_tile.shape[1] == 0:
+                    # print(f"Tile had a size of 0:", this_tile.shape)
+                    # print("Saving dummy tile")
+                    
+                    save_tile(file_path, dummy_tile)
+                    continue
+
+
+                # Resample if not in native zoom
+                if z > 7: # Enlarge / interpolate
+                    # input_image, size of output image, interpolation method
+                    this_tile = cv2.resize(this_tile, (TILE_SIZE, TILE_SIZE), interpolation=cv2.INTER_LINEAR)
+                elif z < 7: # Shrink / reduce resolution
+                    this_tile = cv2.resize(this_tile, (TILE_SIZE, TILE_SIZE), interpolation=cv2.INTER_AREA)
+
+                # print(f"Resampled Image Tile {(x, y)} in Zoom {z}: ", this_tile.shape, this_tile.min(), this_tile.max())
+
+                # print("File Path: ", file_path)
+
+                sts = save_tile(file_path, this_tile)
+                    
 
 def process_aurora_preds(filename : str):
     ds = xr.open_dataset(filename, engine='netcdf4')
