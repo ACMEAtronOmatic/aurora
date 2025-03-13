@@ -73,7 +73,7 @@ inference:
   model: "microsoft/aurora"
   checkpoint: "aurora-0.25-pretrained.ckpt"
   use_lora: false
-  steps: 2
+  steps: 8
   save_path: "gfs_converter_ckpt"
   logs_path: "gfs_converter_logs"
   feature_dims: [128, 256]

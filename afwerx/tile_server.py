@@ -186,6 +186,7 @@ def tile_into_folders(serve_dir : str, noun : str,
         - 
 
     ''' 
+    print("Processing image:", noun, timestamp)
 
     # Check the image shape
     if len(image.shape) == 2:

@@ -39,7 +39,7 @@ class HTTPServer(ThreadingMixIn, BaseHTTPServer):
 
 
 def serve(serve_dir : str, serve_port : int, serve_address : str = "",
-           certfile : str = None, keyfile : str = None):
+           certfile : str | None = None, keyfile : str | None = None):
     '''
     Serve the specified directory to the given port
 

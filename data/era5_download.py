@@ -1,9 +1,12 @@
+from subprocess import list2cmdline
 import cdsapi
 from pathlib import Path
 import xarray as xr
 from aurora import Batch, Metadata
 import torch
 import os
+from datetime import datetime, timedelta
+import numpy as np
 
 def download_static_era5(configs):
     DOWNLOAD_PATH = configs['download_path']
@@ -178,31 +181,63 @@ def download_era5(configs):
 
     return processed_static_path, processed_surface_path, processed_atmos_path
 
-def make_batch(static_path, surface_path, atmos_path, step):
+def make_batch(static_ds : str | xr.Dataset, surface_ds : str | xr.Dataset, atmos_ds : str | xr.Dataset, step : int | datetime):
     '''
     Use netcdf files to creat batch at specified time step
     Note that step is the CURRENT time step
     Data at [step-1, step] will be used
     to create the batch object for predicting step+1
     '''
-    static_ds = xr.open_dataset(static_path, engine="netcdf4")
-    surface_ds = xr.open_dataset(surface_path, engine="netcdf4")
-    atmos_ds = xr.open_dataset(atmos_path, engine="netcdf4")
 
-    print("Batch with presure levels: ", tuple(int(level) for level in atmos_ds.level.values))
-    print("Batch at time: ", (surface_ds.time.values.astype("datetime64[s]").tolist()[step],))
-    print("Batch latitudes: ", atmos_ds['latitude'].values[:5], atmos_ds['latitude'].values[-5:])
-    print("Batch longitudes: ", atmos_ds['longitude'].values[:5], atmos_ds['longitude'].values[-5:])
-    print("Batch atmos shape: ", atmos_ds["t"].shape)
+    if not (isinstance(static_ds, xr.Dataset) and isinstance(surface_ds, xr.Dataset) and isinstance(atmos_ds, xr.Dataset)):
+        # Paths have been passed in 
+        if not (isinstance(static_ds, str) and isinstance(surface_ds, str) and isinstance(atmos_ds, str)):
+            raise ValueError("Parameters to make_batch() must be all xr.Dataset or all string paths")
+
+        static_ds = xr.open_dataset(static_ds, engine="netcdf4")
+        surface_ds = xr.open_dataset(surface_ds, engine="netcdf4")
+        atmos_ds = xr.open_dataset(atmos_ds, engine="netcdf4")
+
+    # Check if the step is an int or a timestamp
+    if isinstance(step, int):
+        # Check that this and the previous step exist in the given datasets
+        if step not in surface_ds.time.values or step - 1 not in surface_ds.time.values:
+            raise ValueError(f"Step {step} does not exist in the given datasets")
+        
+        steps = [step-1, step]
+    
+    elif isinstance(step, datetime):
+        # TODO: Check that it is a viable timestamp
+        prev_step = np.datetime64(step - timedelta(hours=6))
+        step = np.datetime64(step)
+
+        if step not in surface_ds.time or prev_step not in surface_ds.time:
+            print("Dataset Timestamps: ")
+            print(surface_ds.time)
+            raise ValueError(f"Timestep {step} or the previous timestep do not exist in the given datasets")
+        
+        # If they exist, get the equivalent steps for these timestamps
+        prev_step = np.where(surface_ds.time.values == prev_step)[0][0]
+        step = np.where(surface_ds.time.values == step)[0][0]
+
+        steps = [prev_step, step]
+        
+
+    print("Batch Steps: ", steps)
+    # print("Batch with presure levels: ", tuple(int(level) for level in atmos_ds.level.values))
+    # print("Batch at time: ", (surface_ds.time.values.astype("datetime64[s]").tolist()[step],))
+    # print("Batch latitudes: ", atmos_ds['latitude'].values[:5], atmos_ds['latitude'].values[-5:])
+    # print("Batch longitudes: ", atmos_ds['longitude'].values[:5], atmos_ds['longitude'].values[-5:])
+    # print("Batch atmos shape: ", atmos_ds["t"].shape)
 
     batch = Batch(
         surf_vars={
             # First select time points `i` and `i - 1`. Afterwards, `[None]` inserts a
             # batch dimension of size one.
-            "2t": torch.from_numpy(surface_ds["t2m"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "10u": torch.from_numpy(surface_ds["u10"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "10v": torch.from_numpy(surface_ds["v10"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "msl": torch.from_numpy(surface_ds["msl"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "2t": torch.from_numpy(surface_ds["t2m"].values[steps][None]).to(dtype=torch.float32),
+            "10u": torch.from_numpy(surface_ds["u10"].values[steps][None]).to(dtype=torch.float32),
+            "10v": torch.from_numpy(surface_ds["v10"].values[steps][None]).to(dtype=torch.float32),
+            "msl": torch.from_numpy(surface_ds["msl"].values[steps][None]).to(dtype=torch.float32),
         },
         static_vars={
             # The static variables are constant, so we just get them for the first time.
@@ -211,11 +246,11 @@ def make_batch(static_path, surface_path, atmos_path, step):
             "lsm": torch.from_numpy(static_ds["lsm"].values[0]).to(dtype=torch.float32),
         },
         atmos_vars={
-            "t": torch.from_numpy(atmos_ds["t"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "u": torch.from_numpy(atmos_ds["u"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "v": torch.from_numpy(atmos_ds["v"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "q": torch.from_numpy(atmos_ds["q"].values[[step - 1, step]][None]).to(dtype=torch.float32),
-            "z": torch.from_numpy(atmos_ds["z"].values[[step - 1, step]][None]).to(dtype=torch.float32),
+            "t": torch.from_numpy(atmos_ds["t"].values[steps][None]).to(dtype=torch.float32),
+            "u": torch.from_numpy(atmos_ds["u"].values[steps][None]).to(dtype=torch.float32),
+            "v": torch.from_numpy(atmos_ds["v"].values[steps][None]).to(dtype=torch.float32),
+            "q": torch.from_numpy(atmos_ds["q"].values[steps][None]).to(dtype=torch.float32),
+            "z": torch.from_numpy(atmos_ds["z"].values[steps][None]).to(dtype=torch.float32),
         },
         metadata=Metadata(
             lat=torch.from_numpy(surface_ds.latitude.values).to(dtype=torch.float32),
@@ -230,6 +265,55 @@ def make_batch(static_path, surface_path, atmos_path, step):
 
     return batch
 
+def batch_to_xr(batch: Batch | list) -> xr.Dataset:
+    if isinstance(batch, Batch):
+        ds = xr.Dataset(
+            {
+                **{f"surf_{k}": (("batch", "history", "latitude", "longitude"), v) 
+                for k, v in batch.surf_vars.items()},
+                **{f"static_{k}": (("latitude", "longitude"), v) 
+                for k, v in batch.static_vars.items()},
+                **{f"atmos_{k}": (("batch", "history", "level", "latitude", "longitude"), v) 
+                for k, v in batch.atmos_vars.items()},
+            },
+            coords={
+                "latitude": batch.metadata.lat,
+                "longitude": batch.metadata.lon,
+                "time": list(batch.metadata.time),
+                "level": list(batch.metadata.atmos_levels),
+                "rollout_step": batch.metadata.rollout_step,
+            },
+        )
+
+        return ds
+    
+    else:
+        # Iterate through the steps in the rollout
+        datasets = []
+        for b in batch:
+            ds = xr.Dataset(
+                {
+                    **{f"surf_{k}": (("batch", "history", "latitude", "longitude"), v) 
+                    for k, v in b.surf_vars.items()},
+                    **{f"static_{k}": (("latitude", "longitude"), v) 
+                    for k, v in b.static_vars.items()},
+                    **{f"atmos_{k}": (("batch", "history", "level", "latitude", "longitude"), v) 
+                    for k, v in b.atmos_vars.items()},
+                },
+                coords={
+                    "latitude": b.metadata.lat,
+                    "longitude": b.metadata.lon,
+                    "time": list(b.metadata.time),
+                    "level": list(b.metadata.atmos_levels),
+                    "rollout_step": b.metadata.rollout_step,
+                },
+            )
+
+            datasets.append(ds)
+
+        combined_ds = xr.concat(datasets, dim='time').sortby('time')
+
+        return combined_ds
 
 if __name__ == "__main__":
     # Download ERA5 data
